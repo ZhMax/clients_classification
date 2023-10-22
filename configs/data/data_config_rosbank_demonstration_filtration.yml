@@ -1,0 +1,25 @@
+# data name
+data_name: rosbank
+
+data_filepath: /home/storage/projects/sber_project_priceseekers/data/rosbank_embeddings
+
+#random state for data split
+random_state: 10
+
+#number of classes in target
+num_classes: 2
+
+#number of features
+features_dim: 98
+
+#number of workers for dataloader
+num_workers: 8
+
+#pin_memory for dataloader
+pin_memory: True
+
+#Size of batch for model train
+train_batchsize: 128
+
+#Size of batch for model eval
+eval_batchsize: 512
