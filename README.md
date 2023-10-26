@@ -52,7 +52,7 @@ inside the ckpt_dir.
 A method to train a model for solving classification problem. The implemetation is
 performed for the Deterministic Uncertainty Estimation (DUE) model, which was proposed in
 
-[https://arxiv.org/abs/2102.11409], [https://github.com/y0ast/DUE/tree/main]
+[On Feature Collapse and Deep Kernel Learning for Single Forward Pass Uncertainty](https://arxiv.org/abs/2102.11409), https://github.com/y0ast/DUE/tree/main
 
 The model includes the fully connected ResNet combined with the Gaussian process.
 The fully connected ResNet consists of residual feedforward layers with the relu activation 
@@ -117,7 +117,7 @@ An implementation of a method to find noisy examples (mislabeled examples) in da
 counting the forgetting of examples during training. The method is named as the forgetting 
 method. Firstly it was proposed in
 
-[https://arxiv.org/abs/1812.05159], [https://github.com/mtoneva/example_forgetting/tree/master]
+[An Empirical Study of Example Forgetting during Deep Neural Network Learning](https://arxiv.org/abs/1812.05159), https://github.com/mtoneva/example_forgetting/tree/master
 
 According to the paper, noisy examples are frequently forgotten by a model during training
 or are stayed be unlearned. Therefore, to find noisy examples, the following algorithm was
@@ -183,7 +183,7 @@ An implementation of a method to find noisy examples (mislabeled examples) in da
 sequential model training on its parts and counting forgetting of the examples. The method 
 is named as the second-spit forgetting method. It was proposed in
 
-[https://arxiv.org/abs/2210.15031], [https://github.com/pratyushmaini/ssft]
+[Characterizing Datapoints via Second-Split Forgetting](https://arxiv.org/abs/2210.15031), https://github.com/pratyushmaini/ssft
 
 
 One of the disadvantage of the forgetting method for filtration of dataset is that the set 
