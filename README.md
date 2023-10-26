@@ -1,9 +1,21 @@
 # Model for clients classification
 This repository contains code to conduct classification of clients based on their demographic features, history of interaction with a company, purchases, and transactions. <br> The classification problem is solved using a model which combines fully connected ResNet and Gaussian process. The model is capable to estimate uncertainty of its predictions. Therefore, the predictions with high uncertainty can be excluded to achive more reiliable results. Also methods for filtration noisy (mislabeled) examples from dataset are proposed.  
 
-`feature_generation` contains code to create aggregated features from historical data of clients.
+## DIRECTORIES DESCRIPTION
 
-`preprocessor` contains code to create embeddings from aggreagated features through the PCA method.
+`feature_generation_for_sequences` contains code to create aggregated features from historical sequential data (transactions) of clients, in other words in converts sequences into tabular data.
+aggregations used: 
+
+- min
+- max 
+- std
+- mean
+- ohe for categorical features
+- difference between consequent temporal samples 
+
+Aggretation functions can be extended
+
+`preprocessor` contains code to create embeddings from aggreagated features through the PCA method, can be applied for tabular data
 
 `srcprcskr` contains code to create classification model and perform filtration of dataset. 
 
@@ -19,6 +31,11 @@ cd priceseekers
 pip3 install -r requirements.txt 
 pip3 install .
 ```
+
+## QUICK START
+
+quick start notebook can be found in /examples/rosbank_quickstart.ipynb
+
 
 ## DOCUMENTATION
 
