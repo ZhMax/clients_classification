@@ -3,16 +3,17 @@ This repository contains code to conduct classification of clients based on thei
 
 ## DIRECTORIES DESCRIPTION
 
-`feature_generation_for_sequences` contains code to create aggregated features from historical sequential data (transactions) of clients, in other words in converts sequences into tabular data.
-aggregations used: 
+`feature_generation_for_sequences` contains code to create aggregated features from historical sequential data (transactions) of clients, in other words it converts sequences into tabular data.
 
+Aggregations used: 
+```
 - min
 - max 
 - std
 - mean
 - ohe for categorical features
 - difference between consequent temporal samples 
-
+```
 Aggretation functions can be extended
 
 `preprocessor` contains code to create embeddings from aggreagated features through the PCA method, can be applied for tabular data
