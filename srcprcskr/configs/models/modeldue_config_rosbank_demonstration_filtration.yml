@@ -1,0 +1,32 @@
+model_name: 'Due'
+
+#parameters for Fully Connected ResNet
+fc_resnet:
+    input_dim: 98
+    output_dim: 128
+    depth: 4
+    is_spectral_norm: True 
+    spectral_norm_coeff: !!float 0.95
+    spectral_norm_n_power_iters: 1
+    dropout: !!float 0.01
+
+#parameters for Gaussian Process
+gp:
+    num_classes: 2
+    #n_inducing_points >= num_classes
+    n_inducing_points: 2
+    kernel: RBF
+
+#Parameters for SoftMaxLikelihood
+softmax_likelihood:
+    mixing_weights: False
+
+#Parameters for model training
+
+#the checkpoint file with the highest value of track_metric 
+#will be saved during training
+ckpt_track_metric: roc_auc_score
+device: cuda
+#learning rate for the optimizer
+lr: !!float 1e-3
+total_epochs: 3
