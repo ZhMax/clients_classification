@@ -11,19 +11,22 @@ fc_resnet:
     dropout: !!float 0.01
 
 #parameters for Gaussian Process
-
 gp:
+    num_classes: 2
     #n_inducing_points >= num_classes
     n_inducing_points: 2
-    num_classes: 2
     kernel: RBF
 
-#parameters for SoftMaxLikelihood
+#Parameters for SoftMaxLikelihood
 softmax_likelihood:
     mixing_weights: False
 
-#parameters for model train and eval
+#Parameters for model training
+
+#the checkpoint file with the highest value of track_metric 
+#will be saved during training
 ckpt_track_metric: roc_auc_score
 device: cuda
+#learning rate for the optimizer
 lr: !!float 1e-3
 total_epochs: 3

@@ -1,92 +1,273 @@
-# PriceSeekers
+# Model for clients classification
+This repository contains code to conduct classification of clients based on their demographic features, history of interaction with a company, purchases, and transactions. <br> The classification problem is solved using a model which combines fully connected ResNet and Gaussian process. The model is capable to estimate uncertainty of its predictions. Therefore, the predictions with high uncertainty can be excluded to achive more reiliable results. Also methods for filtration noisy (mislabeled) examples from dataset are proposed.  
 
+`feature_generation` contains code to create aggregated features from historical data of clients.
 
+`preprocessor` contains code to create embeddings from aggreagated features through the PCA method.
 
-## Getting started
+`sber_ps` contains code to create classification model and perform filtration of dataset. 
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+`notebooks` contains jupyter notebook for demonstration purpose.
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+## DOCUMENTATION
 
-## Add your files
+### FilteredClassifier
+Main class to solve classification problems and filtrate noisy examples from dataset.
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
-
+```python
+classifier = FilteredClassifier(
+    run_name="user_run_name",
+    log_dir="./logs", 
+    ckpt_dir="./ckpt_dir",
+    path_to_dataconf="sber_ps/configs/data/data_config.yml",
+    path_to_modelconf="sber_ps/configs/models/modeldue_config.yml"
+)
 ```
-cd existing_repo
-git remote add origin https://gitlab.appliedai.tech/priceseekers/core/priceseekers.git
-git branch -M main
-git push -uf origin main
+
+- **run_name** (*str*) is used to distinguish classifier runs
+
+- **path_to_dataconf** (*str*) is path to a `.yml` data configuration file.
+
+- **path_to_modelconf** (*str*) is path to a `.yml` model configuration file.
+
+- **log_dir** (*str*) is path to a directory where logs of model training will be saved. 
+The logs will be saved in a directory which will be created inside the log_dir.
+
+- **ckpt_dir** (*str*) is path to a directory where checkpoints of state dictionaries (e.g model) 
+will be saved during training. The checkpoints will be saved in a directory which will be created 
+inside the ckpt_dir.
+
+#### Fit
+A method to train a model for solving classification problem. The implemetation is
+performed for the Deterministic Uncertainty Estimation (DUE) model, which was proposed in
+
+[https://arxiv.org/abs/2102.11409], [https://github.com/y0ast/DUE/tree/main]
+
+The model includes the fully connected ResNet combined with the Gaussian process.
+The fully connected ResNet consists of residual feedforward layers with the relu activation 
+functions. As a regularization, spectral normalization and dropout are applied to each layer.
+Combination of residual connections with spectral normalization enables to provide smoothness 
+and sensitivity for fully connected neural network. Smothness (or stability) implies small 
+changes in the input cannot cause massive shifts in the output. Sensitivity implies that
+when the input changes the feature representation also changes. This properties are capable to 
+prevent feature collapse, when different input features are mapped by neural network into close
+vectors or the same features are mapped into far-away vectors.
+The Gaussian process is used for classification of vectors provided by the fully connected ResNet
+by given labels. The main advantage of the Gaussian process is uncertainty estimation of made
+predictions. Therefore, the predictions with high uncertainty can be excluded to achive more 
+reiliable results.
+
+```python
+classifier.fit(
+    data_filepath='data/embeddings/',
+    split_frac_train_val=0.8,
+    random_state=None,
+    total_epochs=None,
+    lr=None,
+    path_to_file_names_to_be_excluded=None,
+    is_forgetting=False,
+    metrics_on_train=False,
+    ckpt_resume=None
+)
 ```
 
-## Integrate with your tools
+- **data_filepath** (*str*) is path to a directory which contains files with features and labels. 
+It is supposed that each file contains vector consisting of features and a label of 
+an example (in the last component).
 
-- [ ] [Set up project integrations](https://gitlab.appliedai.tech/priceseekers/core/priceseekers/-/settings/integrations)
+- **split_frac_train_val** (*float*) is fraction of training part size from the size of the full dataset. 
+The value 1.0 spicifies that the full dataset will be used for training.
 
-## Collaborate with your team
+- **random_state** (*int*) is used to provide reproducibility of computations. 
+If it is `None`, a value  from the field `random_state` from the data configuration file 
+will be used.
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Automatically merge when pipeline succeeds](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+- **total_epochs** (*int*) is a number of epochs for model training. 
+If it is `None`, a value from the field `total_epochs` of the model configuration file 
+will be used.
 
-## Test and Deploy
+- **lr** (*float*) is learning rate in an optimizer. If it is `None`, a value from
+the field `lr` of the model configuration file will be used.
 
-Use the built-in continuous integration in GitLab.
+- **path_to_file_names_to_be_excluded** (*str*) is path to a `.txt` file which contains names of files 
+to be excluded from the original dataset for training.
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+- **is_forgetting** (*bool*) inidicates that the masks required for computing 
+forgetting counts of examples will be collected during training and saved in checkpoint files.  
 
-***
+- **metrics_on_train** (*bool*) inidicates that the metrics will be computed metrics on training dataset.
 
-# Editing this README
+- **ckpt_resume** (*str*) is a path to a checkpoint file `*.ckpt` which is used to load the model.
+It should be `None` to train a model from an initial state
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thank you to [makeareadme.com](https://www.makeareadme.com/) for this template.
 
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+#### Filtration dataset by the forgetting method
+An implementation of a method to find noisy examples (mislabeled examples) in dataset by
+counting the forgetting of examples during training. The method is named as the forgetting 
+method. Firstly it was proposed in
 
-## Name
-Choose a self-explaining name for your project.
+[https://arxiv.org/abs/1812.05159], [https://github.com/mtoneva/example_forgetting/tree/master]
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+According to the paper, noisy examples are frequently forgotten by a model during training
+or are stayed be unlearned. Therefore, to find noisy examples, the following algorithm was
+implemented.
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+1) A model is trained on the full dataset, and forgetting masks of examples are saved. The
+masks are formed by comparison of model predictions on each epoch with true labels.
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+2) After training, the quantity of the epochs, when each example was forgotten, is counted.
+The forgetting count for unlearned examples is assigned to be equal to `total_epochs`.
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+3) Array of file names of the dataset containing unlearned examples are saved in `.txt` file
+and can be used for excluding from the dataset in the next model trainings. By varying 
+`threshold_val`, examples with high value of the forgetting counts also can be excluded.
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+```python
+df_examples = classifier.filtration_by_forgetting(
+    data_filepath='data/embeddings/',
+    example_forgetting_dir=None,
+    threshold_val=None,
+    random_state=None,
+    total_epochs=None,
+    lr=None,
+    verbose=True,
+    ckpt_resume=None,
+    path_to_file_names_to_be_excluded=None
+)
+```
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+- **data_filepath** (*str*) is path to a directory which contains files with features and labels. 
+It is supposed that each file contains vector consisting of an embedding and a label of an example (in the last component).
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+- **example_forgetting_dir** (*str*) is path to a directory which will be used to save array with file names 
+containing noisy labels. If it is `None`, then the directory with name `f"{data_name}_forgetting"` will be created in the parent of the directory `data_filepath`. The field `data_name` is provided by the data configuration file.
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+- **threshold_val** (*int*) is the threshold value for `forgetting_counts`, which can be used to filtrate examples.
+If it is `None`, only unlearned examples will be proposed for excluding from the dataset. 
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+- **random_state** (*int*) is used to provide reproducibility of computations. If it is `None`, a value  
+from the field `random_state` from the data configuration file will be used.
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+- **total_epochs** (*int*) is a number of epochs for model training. If it is `None`, a value  
+from the field `total_epochs` of the model configuration file will be used.
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+- **lr** (*float*) is learning rate in an optimizer. If it is `None`, a value from
+the field `lr` of the model configuration file will be used.
 
-## License
-For open source projects, say how it is licensed.
+- **verbose** (*bool*) indicates that pd.DataFrame with forgetting counts for examples will be returned.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+- **ckpt_resume** (*str*) is path to a checkpoint file `*.ckpt` which is used to load the model
+and masks collected during training. It should be `None` to train a model from an initial state.     
+
+- **path_to_file_names_to_be_excluded** (*str*) is path to a `.txt` file which contains names of files 
+to be excluded from the original dataset for training.
+
+*Returns:*
+- **df_examples** (*pd.DataFrame*) contains forgetting counts for examples of 
+the dataset and predictions given by the trained model 
+
+
+#### Filtration dataset by the second-split forgetting method
+An implementation of a method to find noisy examples (mislabeled examples) in dataset by 
+sequential model training on its parts and counting forgetting of the examples. The method 
+is named as the second-spit forgetting method. It was proposed in
+
+[https://arxiv.org/abs/2210.15031], [https://github.com/pratyushmaini/ssft]
+
+
+One of the disadvantage of the forgetting method for filtration of dataset is that the set 
+of unlearned and frequently forgetting examples can include complex examples. The complex 
+examples are placed close to the boundary between different classes. Therefore, such examples
+contribute to improve model training. To separate noisy examples from the complex ones, the
+following algorithm was implemented.
+1) The full dataset is divided into two halves, which we will name as the first part and
+the second part.
+
+2) The model is trained on the first part of the dataset until the values of the loss functions 
+or the tracked metric stabilize (the first training). Then the model training continues 
+on the second part of the dataset (the second training).
+
+3) Examples from the second part of the dataset, which were forgotten after one epoch of 
+the second training, are marked as noisy. 
+
+4) Then the model is trained from the initial state on the second and the first half parts of the dataset. 
+The examples forgotten after one epoch of the model training on the first half of the dataset are marked as noisy.
+
+5) Array of file names of the dataset containing noisy examples are saved in `.txt` file
+and can be used for excluding from the dataset in the next model trainings. By varying 
+`threshold_val`, examples, which were forgotten after larger number of epoch of the subsequent
+training, can be excluded.
+
+```python
+df_examples = classifier.filtration_by_second_split_forgetting(
+    data_filepath='data/embeddings/',
+    example_forgetting_dir=None,
+    threshold_val=None,
+    random_state=None,
+    total_epochs_per_step=None,
+    lr=None,
+    verbose=True,
+    ckpt_resume=None,
+    path_to_file_names_to_be_excluded=None
+)
+```
+
+- **data_filepath** (*str*) is path to a directory which contains files with features and labels. 
+It is supposed that each file contains vector consisting of an embedding and a label of an example (in the last component).
+
+- **example_forgetting_dir** (*str*) is path to a directory which will be used to save array with file names 
+containing noisy labels. If it is `None`, then the directory with name `f"{data_name}_forgetting"` will be created in the parent of the directory `data_filepath`. The field `data_name` is provided by the data configuration file.
+
+- **threshold_val** (*int*) is the threshold value for `epoch_forget_forever`, which can be used to filtrate examples.
+If it is `None`, only examples which are forgotten after one epoch of the next 
+training step will be proposed for excluding from the dataset.
+
+- **random_state** (*int*) is used to provide reproducibility of computations. If it is `None`, a value  
+from the field `random_state` from the data configuration file will be used.
+
+- **total_epochs** (*int*) is a number of epochs for model training. If it is `None`, a value  
+from the field `total_epochs` of the model configuration file will be used.
+
+- **lr** (*float*) is learning rate in an optimizer. If it is `None`, a value from
+the field `lr` of the model configuration file will be used.
+
+- **verbose** (*bool*) indicates that pd.DataFrame with forgetting counts for examples will be returned.
+
+- **ckpt_resume** (*str*) is path to a checkpoint file `*.ckpt` which is used to load the model
+and masks collected during training. It should be `None` to train a model from an initial state.     
+
+- **path_to_file_names_to_be_excluded** (*str*) is path to a `.txt` file which contains names of files 
+to be excluded from the original dataset for training.
+
+*Returns:*
+- **df_examples** (*pd.DataFrame*) contains the number of the epoch when each examples of 
+the dataset were forgotten forever and predictions given by the trained 
+model at the second and fourth training steps.
+
+
+#### Predict
+Method to get predictions using a model loaded from a checkpoint file.
+
+```python
+preds_proba, uncertainties, file_names, true_labels = classifier.predict(
+    data_filepath='data/embeddings/',
+    ckpt_resume='ckpt_dir/data_name_fit/epoch: 0120 - acc_score: 0.7514 - roc_auc_score: 0.749 - loss: 0.3942.ckpt',
+    random_state=None,
+    is_target_col=True,
+    path_to_file_names_to_be_excluded='data/data_name_second_forgetting/data_name_files_to_be_excluded.txt'
+)
+```
+
+- **data_filepath** (*str*) is path to a directory which contains files with features. 
+If the files also contain labels, they should be in the last component of the vectors.
+
+- **ckpt_resume** (*str*) is path to a checkpoint file `*.ckpt` which is used to load the model.
+
+- **random_state** (*int*) is uded to provide reproducibility of computations. If it is `None`, a value  
+from the field `random_state` from the data configuration file will be used.
+
+- **is_target_col** (*bool*) indicates that a value of a target variable is included into to the input vector.
+
+- **path_to_file_names_to_be_excluded** (*str*) is path to a `.txt` file which contains names of files 
+to be excluded from the original dataset for training.
+
