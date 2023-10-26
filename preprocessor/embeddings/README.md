@@ -1,3 +1,5 @@
-## Code for models creating embeddings
+## Code to create embeddings
 
-`pca` contains a file with code to create embeddings by the PCA method.
+`configs` contains files with configurations files to initialize models and run computations
+
+`models` contains files with code for models which are used to create embeddings

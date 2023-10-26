@@ -5,9 +5,20 @@ This repository contains code to conduct classification of clients based on thei
 
 `preprocessor` contains code to create embeddings from aggreagated features through the PCA method.
 
-`sber_ps` contains code to create classification model and perform filtration of dataset. 
+`srcprcskr` contains code to create classification model and perform filtration of dataset. 
 
 `notebooks` contains jupyter notebook for demonstration purpose.
+
+## INSTALLATION GUIDE
+
+```bash
+git clone https://gitlab.appliedai.tech/priceseekers/core/priceseekers
+
+cd priceseekers
+
+pip3 install -r requirements.txt 
+pip3 install .
+```
 
 ## DOCUMENTATION
 
