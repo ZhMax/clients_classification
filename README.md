@@ -1,9 +1,22 @@
 # Model for clients classification
 This repository contains code to conduct classification of clients based on their demographic features, history of interaction with a company, purchases, and transactions. <br> The classification problem is solved using a model which combines fully connected ResNet and Gaussian process. The model is capable to estimate uncertainty of its predictions. Therefore, the predictions with high uncertainty can be excluded to achive more reiliable results. Also methods for filtration noisy (mislabeled) examples from dataset are proposed.  
 
-`feature_generation` contains code to create aggregated features from historical data of clients.
+## DIRECTORIES DESCRIPTION
 
-`preprocessor` contains code to create embeddings from aggreagated features through the PCA method.
+`feature_generation_for_sequences` contains code to create aggregated features from historical sequential data (transactions) of clients, in other words it converts sequences into tabular data.
+
+Aggregations used: 
+```
+- min
+- max 
+- std
+- mean
+- ohe for categorical features
+- difference between consequent temporal samples 
+```
+Aggretation functions can be extended
+
+`preprocessor` contains code to create embeddings from aggreagated features through the PCA method, can be applied for tabular data.
 
 `srcprcskr` contains code to create classification model and perform filtration of dataset. 
 
@@ -19,6 +32,11 @@ cd priceseekers
 pip3 install -r requirements.txt 
 pip3 install .
 ```
+
+## QUICK START
+
+quick start notebook can be found in /examples/rosbank_quickstart.ipynb
+
 
 ## DOCUMENTATION
 
@@ -70,7 +88,8 @@ reiliable results.
 
 ```python
 classifier.fit(
-    data_filepath='data/embeddings/',
+    features_path='data/embeddings/',
+    targets_path='data/targets/',
     split_frac_train_val=0.8,
     random_state=None,
     total_epochs=None,
@@ -82,9 +101,9 @@ classifier.fit(
 )
 ```
 
-- **data_filepath** (*str*) is path to a directory which contains files with features and labels. 
-It is supposed that each file contains vector consisting of features and a label of 
-an example (in the last component).
+- **features_path** (*str*) is path to a directory which contains files with features. 
+
+- **targets_path** (*str*) is path to a directory which contains files with true labels. It is supposed that the files containing features and true label related to one example from the dataset have the same name.
 
 - **split_frac_train_val** (*float*) is fraction of training part size from the size of the full dataset. 
 The value 1.0 spicifies that the full dataset will be used for training.
@@ -147,8 +166,9 @@ df_examples = classifier.filtration_by_forgetting(
 )
 ```
 
-- **data_filepath** (*str*) is path to a directory which contains files with features and labels. 
-It is supposed that each file contains vector consisting of an embedding and a label of an example (in the last component).
+- **features_path** (*str*) is path to a directory which contains files with features. 
+
+- **targets_path** (*str*) is path to a directory which contains files with true labels. It is supposed that the files containing features and true label related to one example from the dataset have the same name.
 
 - **example_forgetting_dir** (*str*) is path to a directory which will be used to save array with file names 
 containing noisy labels. If it is `None`, then the directory with name `f"{data_name}_forgetting"` will be created in the parent of the directory `data_filepath`. The field `data_name` is provided by the data configuration file.
@@ -223,8 +243,9 @@ df_examples = classifier.filtration_by_second_split_forgetting(
 )
 ```
 
-- **data_filepath** (*str*) is path to a directory which contains files with features and labels. 
-It is supposed that each file contains vector consisting of an embedding and a label of an example (in the last component).
+- **features_path** (*str*) is path to a directory which contains files with features. 
+
+- **targets_path** (*str*) is path to a directory which contains files with true labels. It is supposed that the files containing features and true label related to one example from the dataset have the same name.
 
 - **example_forgetting_dir** (*str*) is path to a directory which will be used to save array with file names 
 containing noisy labels. If it is `None`, then the directory with name `f"{data_name}_forgetting"` will be created in the parent of the directory `data_filepath`. The field `data_name` is provided by the data configuration file.
@@ -261,23 +282,23 @@ Method to get predictions using a model loaded from a checkpoint file.
 
 ```python
 preds_proba, uncertainties, file_names, true_labels = classifier.predict(
-    data_filepath='data/embeddings/',
+    features_path='data/embeddings/',
     ckpt_resume='ckpt_dir/data_name_fit/epoch: 0120 - acc_score: 0.7514 - roc_auc_score: 0.749 - loss: 0.3942.ckpt',
     random_state=None,
-    is_target_col=True,
+    targets_path=None,
     path_to_file_names_to_be_excluded='data/data_name_second_forgetting/data_name_files_to_be_excluded.txt'
 )
 ```
 
-- **data_filepath** (*str*) is path to a directory which contains files with features. 
-If the files also contain labels, they should be in the last component of the vectors.
+- **features_path** (*str*) is path to a directory which contains files with features. 
 
 - **ckpt_resume** (*str*) is path to a checkpoint file `*.ckpt` which is used to load the model.
 
 - **random_state** (*int*) is uded to provide reproducibility of computations. If it is `None`, a value  
 from the field `random_state` from the data configuration file will be used.
 
-- **is_target_col** (*bool*) indicates that a value of a target variable is included into to the input vector.
+
+- **targets_path** (*str*) is path to a directory which contains files with true labels. If it is omitted, than true labels predictions will not be returned.
 
 - **path_to_file_names_to_be_excluded** (*str*) is path to a `.txt` file which contains names of files 
 to be excluded from the original dataset for training.

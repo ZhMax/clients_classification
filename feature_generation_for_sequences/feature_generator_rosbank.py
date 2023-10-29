@@ -2,9 +2,10 @@ import pandas as pd
 import numpy as np
 
 from typing import Any, Dict, List, Union, Tuple
+from pathlib import Path
 
 PATH_TO_DATA = '/home/rosbank_data'
-PATH_TO_SAVE = '/home/storage/projects/sber_project_priceseekers/data' 
+PATH_TO_SAVE = '/home/storage/projects/sber_project_priceseekers/data/rosbank'  
 
 class DataFrameAggregator(object):
     """
@@ -227,6 +228,9 @@ if __name__ == '__main__':
     path_to_test_data = f'{PATH_TO_DATA}/test.csv.zip'
     df_test = pd.read_csv(path_to_test_data)
 
+    path_to_save = Path(PATH_TO_SAVE)
+    path_to_save.mkdir(parents=True, exist_ok=True)
+
     df_full = pd.concat([df_train, df_test], ignore_index=True)
     df_full = df_full.drop_duplicates().reset_index(drop=True)
 
@@ -245,4 +249,4 @@ if __name__ == '__main__':
     obj_df_agg.cat_cols_agg()
     obj_df_agg.join_out_agg_with_targets()
 
-    obj_df_agg.df_out_agg.to_parquet(f'{PATH_TO_SAVE}/rosbank_features.parquet')
+    obj_df_agg.df_out_agg.to_parquet(f'{path_to_save}/rosbank_features.parquet')

@@ -1,10 +1,7 @@
-import os
-import shutil
-import os
-import shutil
 import sys
 import yaml
 from pathlib import Path
+import shutil
 from argparse import ArgumentParser
 
 import numpy as np
@@ -122,10 +119,9 @@ if __name__ == '__main__':
     pca_n_components = config['pca']['n_components']
     pca_is_std_scaler = config['pca']['is_standard_scaler']
 
-    is_save_in_separate_files = config['data_save']['is_save_in_files']
     dataset_name = config['data_save']['data_name']
-    path_to_embeddings = os.path.join(
-        config['data_save']['path_to_embeddings_dir'], dataset_name+'_embeddings')
+    path_to_save = config['data_save']['path_to_save']
+
 
     #Load data and apply PCA
     df = get_data_from_file(path_to_df)
@@ -136,37 +132,51 @@ if __name__ == '__main__':
         X, 
         n_components=pca_n_components,
         is_std_scaler=pca_is_std_scaler)
-    labeled_embeddings = np.hstack([X, np.expand_dims(y, axis=1)])
+    # labeled_embeddings = np.hstack([X, np.expand_dims(y, axis=1)])
 
 
     #Save embeddings
-    if os.path.exists(path_to_embeddings):
-        shutil.rmtree(path_to_embeddings)
-        os.mkdir(path_to_embeddings)
+    path_to_save_embeddings = Path(path_to_save) / f'{dataset_name}_embeddings'
+    path_to_save_embeddings = Path(path_to_save_embeddings)
+
+    path_to_save_targets = Path(path_to_save) / f'{dataset_name}_targets'
+    path_to_save_targets = Path(path_to_save_targets)
+
+    if path_to_save_embeddings.is_dir():
+        shutil.rmtree(path_to_save_embeddings)
+        path_to_save_embeddings.mkdir(parents=True, exist_ok=True)
     else:
-        os.mkdir(path_to_embeddings)
+        path_to_save_embeddings.mkdir(parents=True, exist_ok=True)
+
+    if path_to_save_targets.is_dir():
+        shutil.rmtree(path_to_save_targets)
+        path_to_save_targets.mkdir(parents=True, exist_ok=True)
+    else:
+        path_to_save_targets.mkdir(parents=True, exist_ok=True)    
 
 
-    if is_save_in_separate_files:
-        for idx, vec in zip(index_list, labeled_embeddings):
-            file_name = str(idx)
-            file_path = os.path.join(path_to_embeddings, file_name)
-            np.save(file_path, vec)
-    else:
-        embeddings_file_name = f'{dataset_name}_embeddings.parquet'
-    
-        file_path = os.path.join(path_to_embeddings, embeddings_file_name)
-        np.save(file_path, labeled_embeddings)
+    for idx, vec, target in zip(index_list, X, y):
+        file_name = str(idx)
+
+        file_path_embedding = Path(path_to_save_embeddings) / file_name
+        file_path_embedding = Path(file_path_embedding)
+        np.save(file_path_embedding, vec)
+
+        file_path_target = Path(path_to_save_targets) / file_name
+        file_path_target = Path(file_path_target)
+        np.save(file_path_target, target)
 
 
     embeddings_config ={
         'data_name': dataset_name,
-        'vectors_num': labeled_embeddings.shape[0],
-        'features_len': labeled_embeddings.shape[1] - 1,
-        'target_col': labeled_embeddings.shape[1],
+        'vectors_num': X.shape[0],
+        'features_len': X.shape[1],
+        'path_to_embeddings': str(path_to_save_embeddings),
+        'path_to_targets': str(path_to_save_targets)
     }
     
     embeddings_config_name = f'{dataset_name}_config.yml'
-    embeddings_config_path = os.path.join(path_to_embeddings, embeddings_config_name)
+    embeddings_config_path = Path(path_to_save) / embeddings_config_name
+    embeddings_config_path = Path(embeddings_config_path)
     with open(embeddings_config_path, 'w') as f:
         yaml.dump(embeddings_config, f)

@@ -1,14 +1,12 @@
 data_load:
-  path_to_dataframe: /home/storage/projects/sber_project_priceseekers/data/rosbank_features.parquet 
+  path_to_dataframe: /home/storage/projects/sber_project_priceseekers/data/rosbank/rosbank_features.parquet 
   #name of the column with the target variable 
   target_col: target
 data_save:
   #user defined name of the dataset
   data_name: rosbank
-  #if it is True, then each embedding will be saved in separate file
-  is_save_in_files: True
-  #path to a directory where embeddings will be saved
-  path_to_embeddings_dir: /home/storage/projects/sber_project_priceseekers/data/
+  #path to a directory where embeddings and targets will be saved
+  path_to_save: /home/storage/projects/sber_project_priceseekers/data/rosbank
 pca:
   #standardize features before apply the PCA method
   is_standard_scaler: True

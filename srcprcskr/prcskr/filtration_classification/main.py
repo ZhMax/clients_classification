@@ -48,7 +48,8 @@ class FilteredClassifier():
     Methods
     -------
         fit(
-            data_filepath: str,
+            features_path: str,
+            targets_path: str,
             split_frac_train_val: float = 1.0,
             random_state: int = None,
             total_epochs: int = None,
@@ -78,7 +79,8 @@ class FilteredClassifier():
             reiliable results.
 
         filtration_by_forgetting(
-            data_filepath: str,
+            features_path: str,
+            targets_path: str,
             example_forgetting_dir: str = None,
             threshold_val: int = None,
             random_state: int = None,
@@ -107,7 +109,8 @@ class FilteredClassifier():
 
         
         filtration_by_second_split_forgetting(
-                data_filepath: str,
+                features_path: str,
+                targets_path: str,
                 example_forgetting_dir: str = None,
                 threshold_val: int = None,
                 random_state: int = None,
@@ -147,10 +150,10 @@ class FilteredClassifier():
             training, can be excluded.
  
         predict(
-            data_filepath: str,
+            features_path: str,
             ckpt_resume: str,
             random_state: int = None,
-            is_target_col: bool = True,
+            targets_path: str = None,
             path_to_file_names_to_be_excluded: str = None
         )
             A method to load model from chekpoint file given by `ckpt_resume` and get predictions for
@@ -218,7 +221,8 @@ class FilteredClassifier():
 
     def fit(
         self,
-        data_filepath: str,
+        features_path: str,
+        targets_path: str, 
         split_frac_train_val: float = 1.0,
         random_state: int = None,
         total_epochs: int = None,
@@ -232,10 +236,13 @@ class FilteredClassifier():
         Method to train model for solving classification problem.
 
         Args:
-            data_filepath: str
-                Path to a directory which contains files with features and labels. 
-                It is supposed that each file contains vector consisting of
-                features and a label of an example (in the last component).
+            features_path: str
+                Path to a directory which contains files with features.
+
+            targets_path: str
+                Path to a directory which contains files with true labels.
+                It is supposed that the files containing features and true 
+                label related to one example from the dataset have the same name.
 
             split_frac_train_val: float = 1.0
                 Fraction of training part size from the size of the full dataset. 
@@ -311,7 +318,8 @@ class FilteredClassifier():
             run_name=run_name, 
             log_dir=log_dir,
             ckpt_dir=ckpt_dir,
-            data_filepath=data_filepath,
+            features_path=features_path,
+            targets_path=targets_path,
             split_frac_train_val=split_frac_train_val,
             random_state=random_state,
             total_epochs=total_epochs,
@@ -331,7 +339,8 @@ class FilteredClassifier():
 
     def filtration_by_forgetting(
         self,
-        data_filepath: str,
+        features_path: str,
+        targets_path: str,
         example_forgetting_dir: str = None,
         threshold_val: int = None,
         random_state: int = None,
@@ -347,10 +356,13 @@ class FilteredClassifier():
         `.txt` file. 
 
         Args:
-            data_filepath: str
-                Path to a directory which contains files with features and labels. 
-                It is supposed that each file contains vector consisting of
-                an embedding and a label of an example (in the last component).
+            features_path: str
+                Path to a directory which contains files with features.
+
+            targets_path: str
+                Path to a directory which contains files with true labels.
+                It is supposed that the files containing features and true 
+                label related to one example from the dataset have the same name.
 
             example_forgetting_dir: str = None
                 Path to a directory which will be used to save array with file names 
@@ -435,7 +447,8 @@ class FilteredClassifier():
             run_name=run_name,
             log_dir=log_dir,
             ckpt_dir=ckpt_dir,
-            data_filepath=data_filepath,
+            features_path=features_path,
+            targets_path=targets_path,
             random_state=random_state,
             total_epochs=total_epochs,
             lr=lr,
@@ -456,7 +469,8 @@ class FilteredClassifier():
 
     def filtration_by_second_split_forgetting(
         self,
-        data_filepath: str,
+        features_path: str,
+        targets_path: str,
         example_forgetting_dir: str = None,
         threshold_val: int = None,
         random_state: int = None,
@@ -473,10 +487,13 @@ class FilteredClassifier():
         saved in `.txt` file. 
 
         Args:
-            data_filepath: str
-                Path to a directory which contains files with features and labels. 
-                It is supposed that each file contains vector consisting of
-                an embedding and a label of an example (in the last component).
+            features_path: str
+                Path to a directory which contains files with features.
+
+            targets_path: str
+                Path to a directory which contains files with true labels.
+                It is supposed that the files containing features and true 
+                label related to one example from the dataset have the same name.
 
             example_forgetting_dir: str = None
                 Path to a directory which will be used to save array with file names 
@@ -565,7 +582,8 @@ class FilteredClassifier():
         df_examples = filtration_of_dataset_by_second_split_forgetting(
             log_dir=log_dir,
             ckpt_dir=ckpt_dir,
-            data_filepath=data_filepath,
+            features_path=features_path,
+            targets_path=targets_path,
             random_state=random_state,
             total_epochs_per_step=total_epochs_per_step,
             lr=lr,
@@ -584,20 +602,19 @@ class FilteredClassifier():
 
     def predict(
         self,
-        data_filepath: str,
+        features_path: str,
         ckpt_resume: str,
         random_state: int = None,
-        is_target_col: bool = True,
+        targets_path: str = None,
         path_to_file_names_to_be_excluded: str = None
     ):
         """
         Method to get predictions using a model loaded from a checkpoint file
 
         Args:
-            data_filepath: str
+            features_path: str
                 Path to a directory which contains files with features.
-                If the files also contain labels, they should be in
-                the last component of the vectors.
+
 
             ckpt_resume: str = None
                 Path to a checkpoint file `*.ckpt` which is used to load the model.
@@ -607,9 +624,9 @@ class FilteredClassifier():
                 from the field `random_state` from the data configuration file 
                 will be used.
 
-            is_target_col: bool = True
-            Is a value of a target variable included into to the input vector?
-            If it is `False`, target variable will be returned as `None`.
+            targets_path: str = None
+                Path to a directory which contains files with true labels.
+                If it is `None`, target variable will not be returned.  
 
             path_to_file_names_to_be_excluded: str = None
                 Path to a `.txt` file which contains names of files 
@@ -635,12 +652,12 @@ class FilteredClassifier():
 
         preds, uncertainties, file_names, gts, trainer = load_classifier_and_predict(
             run_name=self._run_name,
-            data_filepath=data_filepath,
+            features_path=features_path,
             ckpt_resume=ckpt_resume,
             random_state=random_state,
             dataconf=self._dataconf,
             modelconf=self._modelconf,
-            is_target_col=is_target_col,
+            targets_path=targets_path,
             path_to_file_names_to_be_excluded=path_to_file_names_to_be_excluded, 
         )
 

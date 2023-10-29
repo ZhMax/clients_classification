@@ -30,7 +30,8 @@ def _make_key_extractor(key):
 def filtration_of_dataset_by_second_split_forgetting(
     log_dir: str,
     ckpt_dir: str,
-    data_filepath: str,
+    features_path: str,
+    targets_path: str,
     random_state: int,
     total_epochs_per_step: int,
     lr: float,
@@ -53,10 +54,13 @@ def filtration_of_dataset_by_second_split_forgetting(
         ckpt_dir: str
             Path to directory for saving checkpoints
 
-        data_filepath: str
-            Path to a directory which contains files with features and labels. 
-            It is supposed that each file contains vector consisting of
-            an embedding and a label of an example (in the last component).
+        features_path: str
+            Path to a directory which contains files with features.
+
+        targets_path: str
+            Path to a directory which contains files with true labels.
+            It is supposed that the files containing features and true label 
+            for an example from the dataset have the same name.
 
         random_state: int
             To provide reproducibility of computations.
@@ -124,7 +128,8 @@ def filtration_of_dataset_by_second_split_forgetting(
 
     #Create two train dataset by splitting the original dataset into two equal parts 
     train_dataset_pt1, train_dataset_pt2 = create_datasets(
-        data_filepath=data_filepath,
+        features_path=features_path,
+        targets_path=targets_path,
         random_state=random_state,
         features_dim=dataconf['features_dim'],
         path_to_file_names_to_be_excluded=path_to_file_names_to_be_excluded,
@@ -290,9 +295,9 @@ def filtration_of_dataset_by_second_split_forgetting(
 
     #Specify folder to save files with results of the method
     if example_forgetting_dir is None:
-        example_forgetting_dir = Path(data_filepath).parent
+        example_forgetting_dir = Path(features_path).parent
     else:
-        example_forgetting_dir = Path(data_filepath)
+        example_forgetting_dir = Path(features_path)
 
     example_forgetting_dir = \
         example_forgetting_dir / f"{dataconf['data_name']}_second_forgetting" 

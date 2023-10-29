@@ -8,7 +8,8 @@ def fit_classifier(
     run_name: str, 
     log_dir: str,
     ckpt_dir: str,
-    data_filepath: str,
+    features_path: str,
+    targets_path: str,
     random_state: int,
     total_epochs: int,
     lr: float,
@@ -35,10 +36,13 @@ def fit_classifier(
         ckpt_dir: str
             Path to directory for saving checkpoints
 
-        data_filepath: str
-            Path to a directory which contains files with features and labels. 
-            It is supposed that each file contains vector consisting of
-            an embedding and a label of an example (in the last component).
+        features_path: str
+            Path to a directory which contains files with features.
+
+        targets_path: str
+            Path to a directory which contains files with true labels.
+            It is supposed that the files containing features and true 
+            label related to one example from the dataset have the same name.
 
         random_state: int = None
             To provide reproducibility of computations. If it is `None`, a value  
@@ -91,10 +95,11 @@ def fit_classifier(
 
     #Create training and validation datasets
     train_dataset, val_dataset = create_datasets(
-        data_filepath=data_filepath,
+        features_path=features_path,
         random_state=random_state,
         features_dim=dataconf['features_dim'],
         split_fraction=split_frac_train_val,
+        targets_path=targets_path,
         path_to_file_names_to_be_excluded=path_to_file_names_to_be_excluded,
         mode='fit'
     )
