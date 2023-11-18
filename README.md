@@ -35,7 +35,7 @@ pip3 install .
 
 ## QUICK START
 
-quick start notebook can be found in /examples/rosbank_quickstart.ipynb
+quick start notebook can be found in /examples/rosbank_demonstration.ipynb
 
 
 ## DOCUMENTATION
@@ -94,7 +94,7 @@ classifier.fit(
     random_state=None,
     total_epochs=None,
     lr=None,
-    path_to_file_names_to_be_excluded=None,
+    path_to_examples_to_be_excluded=None,
     is_forgetting=False,
     metrics_on_train=False,
     ckpt_resume=None
@@ -119,7 +119,7 @@ will be used.
 - **lr** (*float*) is learning rate in an optimizer. If it is `None`, a value from
 the field `lr` of the model configuration file will be used.
 
-- **path_to_file_names_to_be_excluded** (*str*) is path to a `.txt` file which contains names of examples 
+- **path_to_examples_to_be_excluded** (*str*) is path to a `.txt` file which contains names of examples 
 to be excluded from the original dataset for training.
 
 - **is_forgetting** (*bool*) inidicates that the masks required for computing 
@@ -162,7 +162,7 @@ df_examples = classifier.filtration_by_forgetting(
     lr=None,
     verbose=True,
     ckpt_resume=None,
-    path_to_file_names_to_be_excluded=None
+    path_to_examples_to_be_excluded=None
 )
 ```
 
@@ -189,7 +189,7 @@ the field `lr` of the model configuration file will be used.
 - **ckpt_resume** (*str*) is path to a checkpoint file `*.ckpt` which is used to load the model
 and masks collected during training. It should be `None` to train a model from an initial state.     
 
-- **path_to_file_names_to_be_excluded** (*str*) is path to a `.txt` file which contains names of examples 
+- **path_to_examples_to_be_excluded** (*str*) is path to a `.txt` file which contains names of examples 
 to be excluded from the original dataset for training.
 
 *Returns:*
@@ -238,7 +238,7 @@ df_examples = classifier.filtration_by_second_split_forgetting(
     lr=None,
     verbose=True,
     ckpt_resume=None,
-    path_to_file_names_to_be_excluded=None
+    path_to_examples_to_be_excluded=None
 )
 ```
 
@@ -266,7 +266,7 @@ the field `lr` of the model configuration file will be used.
 - **ckpt_resume** (*str*) is path to a checkpoint file `*.ckpt` which is used to load the model
 and masks collected during training. It should be `None` to train a model from an initial state.     
 
-- **path_to_file_names_to_be_excluded** (*str*) is path to a `.txt` file which contains names of examples 
+- **path_to_examples_to_be_excluded** (*str*) is path to a `.txt` file which contains names of examples 
 to be excluded from the original dataset for training.
 
 *Returns:*
@@ -284,7 +284,7 @@ preds_proba, uncertainties, file_names, true_labels = classifier.predict(
     ckpt_resume='ckpt_dir/data_name_fit/epoch: 0120 - acc_score: 0.7514 - roc_auc_score: 0.749 - loss: 0.3942.ckpt',
     random_state=None,
     targets_path=None,
-    path_to_file_names_to_be_excluded='data/data_name_second_forgetting/data_name_files_to_be_excluded.txt'
+    path_to_examples_to_be_excluded='data/data_name_second_forgetting/data_name_files_to_be_excluded.txt'
 )
 ```
 
@@ -297,6 +297,6 @@ from the field `random_state` from the data configuration file will be used.
 
 - **targets_path** (*str*) is a path to a file with true labels. If it is omitted, than true labels predictions will not be returned.
 
-- **path_to_file_names_to_be_excluded** (*str*) is path to a `.txt` file which contains names of examples 
+- **path_to_examples_to_be_excluded** (*str*) is path to a `.txt` file which contains names of examples 
 to be excluded from the original dataset for training.
 
