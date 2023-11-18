@@ -7,6 +7,9 @@ from argparse import ArgumentParser
 import numpy as np
 import pandas as pd
 
+import pyarrow as pa
+import pyarrow.parquet as pq
+
 from sklearn.preprocessing import StandardScaler
 from  sklearn.decomposition import PCA
 
@@ -45,7 +48,7 @@ def extract_features_target_from_df(
             pd.DataFrame with features and target column 
 
         target_col: str
-            name of the column with target variable
+            Name of the column with target variable
 
     Returns:
         X: np.array
@@ -60,41 +63,92 @@ def extract_features_target_from_df(
 
     return X, y
 
-
-def compute_pca_embedding(
-    X: np.array,
-    n_components: Union[int, float] = 0.95,
-    is_std_scaler: bool = True
+def get_pca_embeddings(
+    path_to_config: str
 ):
     """
-    Transform features through StandardScaler and apply
-    the PCA method.
+    Method to fit PCA transformation, compute embeddings,
+    and save embeddings and targets into` files 
+    f'{dataset_name}_pca_embeddings.parquet' and 
+    f'{dataset_name}_targets.parquet', where `dataset_name` 
+    is given in the configuration file.
 
     Args:
-        X: np.array
-            Array of feature vectors
-
-        n_components: int or float
-            as in the PCA method from sklearn
-
-        is_std_scaler: bool = True
-            Is it necessary to standardize features?
-
-    Returns:
-        X: np.array
-           Array of embeddings given by the PCA method 
+        path_to_config: str
+            Path to configuration file
     """
 
-    if is_std_scaler:
+    with open(path_to_config, 'r') as f:
+        config = yaml.load(f, Loader=yaml.FullLoader)
+
+    path_to_df_fit = config['data_load']['path_to_fit_dataframe']
+    path_to_df_transform = config['data_load']['path_to_transform_dataframe']
+    target_col = config['data_load']['target_col']
+
+    pca_n_components = config['pca']['n_components']
+    pca_is_std_scaler = config['pca']['is_standard_scaler']
+    pca_random_state = config['pca']['random_state']
+
+    dataset_name = config['data_save']['data_name']
+    path_to_save = config['data_save']['path_to_save']
+
+
+    #Load data and fit std_scaler and PCA
+    df = pq.read_table(path_to_df_fit).to_pandas()
+    X, y = extract_features_target_from_df(df, target_col)
+
+    if pca_is_std_scaler:
         std_scaler = StandardScaler()
         std_scaler.fit(X)
         X = std_scaler.transform(X)
 
-    model_PCA = PCA(n_components=n_components)
+    model_PCA = PCA(
+        n_components=pca_n_components,
+        random_state=pca_random_state,
+        svd_solver='full'
+    )
     model_PCA.fit(X)
+
+    #Load data and create embeddings by the PCA method
+    df = pq.read_table(path_to_df_transform).to_pandas()
+    index_list = list(df.index)
+    X, y = extract_features_target_from_df(df, target_col)
+
+    if pca_is_std_scaler:
+        X = std_scaler.transform(X)
+
     X = model_PCA.transform(X)
 
-    return X
+    #Save embeddings and targets
+    path_to_save_embeddings = Path(path_to_save)
+    path_to_save_embeddings.mkdir(parents=True, exist_ok=True)
+    file_path_embeddings = Path(path_to_save_embeddings) / f'{dataset_name}_pca_embeddings.parquet'
+
+    path_to_save_targets = Path(path_to_save)
+    path_to_save_targets.mkdir(parents=True, exist_ok=True)
+    file_path_targets = Path(path_to_save_embeddings) / f'{dataset_name}_targets.parquet'
+
+    df_to_save = pd.DataFrame(data=X, index=index_list)
+    df_to_save = pa.Table.from_pandas(df_to_save)
+    pq.write_table(df_to_save, file_path_embeddings)
+
+    df_to_save = pd.DataFrame(data=y, index=index_list)
+    df_to_save = pa.Table.from_pandas(df_to_save)
+    pq.write_table(df_to_save, file_path_targets)
+
+    embeddings_config ={
+        'data_name': dataset_name,
+        'vectors_num': X.shape[0],
+        'features_dim': X.shape[1],
+        'path_to_embeddings': str(path_to_save_embeddings),
+        'path_to_targets': str(path_to_save_targets)
+    }
+    
+    embeddings_config_name = f'{dataset_name}_config.yml'
+    embeddings_config_path = Path(path_to_save) / embeddings_config_name
+    embeddings_config_path = Path(embeddings_config_path)
+    with open(embeddings_config_path, 'w') as f:
+        yaml.dump(embeddings_config, f)
 
 
 if __name__ == '__main__':
@@ -110,73 +164,6 @@ if __name__ == '__main__':
 
     #Config reading
     path_to_config = args.path_to_config
-    with open(path_to_config, 'r') as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
 
-    path_to_df = config['data_load']['path_to_dataframe']
-    target_col = config['data_load']['target_col']
-
-    pca_n_components = config['pca']['n_components']
-    pca_is_std_scaler = config['pca']['is_standard_scaler']
-
-    dataset_name = config['data_save']['data_name']
-    path_to_save = config['data_save']['path_to_save']
-
-
-    #Load data and apply PCA
-    df = get_data_from_file(path_to_df)
-
-    index_list = list(df.index)
-    X, y = extract_features_target_from_df(df, target_col)
-    X = compute_pca_embedding(
-        X, 
-        n_components=pca_n_components,
-        is_std_scaler=pca_is_std_scaler)
-    # labeled_embeddings = np.hstack([X, np.expand_dims(y, axis=1)])
-
-
-    #Save embeddings
-    path_to_save_embeddings = Path(path_to_save) / f'{dataset_name}_embeddings'
-    path_to_save_embeddings = Path(path_to_save_embeddings)
-
-    path_to_save_targets = Path(path_to_save) / f'{dataset_name}_targets'
-    path_to_save_targets = Path(path_to_save_targets)
-
-    if path_to_save_embeddings.is_dir():
-        shutil.rmtree(path_to_save_embeddings)
-        path_to_save_embeddings.mkdir(parents=True, exist_ok=True)
-    else:
-        path_to_save_embeddings.mkdir(parents=True, exist_ok=True)
-
-    if path_to_save_targets.is_dir():
-        shutil.rmtree(path_to_save_targets)
-        path_to_save_targets.mkdir(parents=True, exist_ok=True)
-    else:
-        path_to_save_targets.mkdir(parents=True, exist_ok=True)    
-
-
-    for idx, vec, target in zip(index_list, X, y):
-        file_name = str(idx)
-
-        file_path_embedding = Path(path_to_save_embeddings) / file_name
-        file_path_embedding = Path(file_path_embedding)
-        np.save(file_path_embedding, vec)
-
-        file_path_target = Path(path_to_save_targets) / file_name
-        file_path_target = Path(file_path_target)
-        np.save(file_path_target, target)
-
-
-    embeddings_config ={
-        'data_name': dataset_name,
-        'vectors_num': X.shape[0],
-        'features_len': X.shape[1],
-        'path_to_embeddings': str(path_to_save_embeddings),
-        'path_to_targets': str(path_to_save_targets)
-    }
-    
-    embeddings_config_name = f'{dataset_name}_config.yml'
-    embeddings_config_path = Path(path_to_save) / embeddings_config_name
-    embeddings_config_path = Path(embeddings_config_path)
-    with open(embeddings_config_path, 'w') as f:
-        yaml.dump(embeddings_config, f)
+    #compute PCA embeddings
+    get_pca_embeddings(path_to_config)

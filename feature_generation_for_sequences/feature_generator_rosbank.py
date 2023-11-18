@@ -1,11 +1,17 @@
+import pyarrow as pa
+import pyarrow.parquet as pq
 import pandas as pd
 import numpy as np
+
 
 from typing import Any, Dict, List, Union, Tuple
 from pathlib import Path
 
-PATH_TO_DATA = '/home/rosbank_data'
-PATH_TO_SAVE = '/home/storage/projects/sber_project_priceseekers/data/rosbank'  
+PATH_TO_TRAIN_DATA = '/home/storage/priceseekers/data/rosbank/rosbank_dataset/train_part'
+PATH_TO_TRAIN_DATA_SAVE = '/home/storage/priceseekers/data/rosbank/rosbank_dataset/train_part'
+
+PATH_TO_TEST_DATA = '/home/storage/priceseekers/data/rosbank/rosbank_dataset/test_part'
+PATH_TO_TEST_DATA_SAVE = '/home/storage/priceseekers/data/rosbank/rosbank_dataset/test_part' 
 
 class DataFrameAggregator(object):
     """
@@ -75,7 +81,19 @@ class DataFrameAggregator(object):
         #pd.DataFrame with aggregated features
         self.df_out_agg = None
 
-    def determine_columns_type(self):
+    def transform(self):
+        """
+        Transform dataframe to generate aggregated 
+        features
+        """
+
+        self._determine_columns_type()
+        self._float_cols_agg()
+        self._cat_cols_agg()
+        self._join_out_agg_with_targets()
+
+
+    def _determine_columns_type(self):
         """
         Divide the columns with numerical values into 
         columns with booleans, integer and float values  
@@ -99,7 +117,7 @@ class DataFrameAggregator(object):
                                 if (item not in self.int_cols) and \
                                    (item not in self.binary_cols)]
 
-    def float_cols_agg(self):
+    def _float_cols_agg(self):
         """
         Calculate aggregated features from columns with float values
         """
@@ -131,7 +149,7 @@ class DataFrameAggregator(object):
         else:
             self.df_out_agg[df_out.columns] = df_out
 
-    def int_cols_agg(self):
+    def _int_cols_agg(self):
         """
         Calculate aggregated features from columns with integer values
         """
@@ -166,7 +184,7 @@ class DataFrameAggregator(object):
         else:
             self.df_out_agg[df_out.columns] = df_out
 
-    def cat_cols_agg(self):
+    def _cat_cols_agg(self):
         """
         Calculate aggregated features from columns with categorical values
         """
@@ -197,13 +215,13 @@ class DataFrameAggregator(object):
         else:
             self.df_out_agg[df_out.columns] = df_out
 
-    def join_out_agg_with_targets(self):
+    def _join_out_agg_with_targets(self):
         """
         Join aggregated features with target variable by
         client ID
         """
 
-        ser_target = self.df_in_targets.groupby(by=self.idx_col)['target']\
+        ser_target = self.df_in_targets.groupby(by=self.idx_col)[self.target_col]\
                                        .apply(lambda x: pd.Series.mode(x)[0])
 
         self.df_out_agg = self.df_out_agg.join(ser_target, on=self.idx_col)
@@ -218,35 +236,64 @@ class DataFrameAggregator(object):
             x.iloc[:, i] = x.iloc[:, i].diff()
 
         return x
-    
 
 if __name__ == '__main__':
 
-    path_to_train_data = f'{PATH_TO_DATA}/train.csv.zip'
-    df_train = pd.read_csv(path_to_train_data)
+    path_to_train_data = f'{PATH_TO_TRAIN_DATA}/rosbank_churn_train.parquet'
+    df_train = pq.read_table(path_to_train_data).to_pandas()
 
-    path_to_test_data = f'{PATH_TO_DATA}/test.csv.zip'
-    df_test = pd.read_csv(path_to_test_data)
+    path_to_test_data = f'{PATH_TO_TEST_DATA}/rosbank_churn_test.parquet'
+    df_test = pq.read_table(path_to_test_data).to_pandas()
 
-    path_to_save = Path(PATH_TO_SAVE)
-    path_to_save.mkdir(parents=True, exist_ok=True)
 
-    df_full = pd.concat([df_train, df_test], ignore_index=True)
-    df_full = df_full.drop_duplicates().reset_index(drop=True)
+    #aggregate features for train dataset
+    df_train = df_train.drop_duplicates().reset_index(drop=True)
 
     obj_df_agg = DataFrameAggregator(
-        df_full.drop(columns='target'),
-        df_full[['index', 'target']],
-        idx_col='index',
-        time_col ='time',
-        target_col = 'target',
+        df_train.drop(columns='target_target_flag'),
+        df_train[['cl_id', 'target_target_flag']],
+        idx_col='cl_id',
+        time_col ='event_time',
+        target_col = 'target_target_flag',
         numerical_cols=['amount'],
         cat_cols = ['mcc', 'channel_type', 'currency', 'trx_category']
     )
 
-    obj_df_agg.determine_columns_type()
-    obj_df_agg.float_cols_agg()
-    obj_df_agg.cat_cols_agg()
-    obj_df_agg.join_out_agg_with_targets()
+    obj_df_agg.transform()
+    df_train_agg = obj_df_agg.df_out_agg
 
-    obj_df_agg.df_out_agg.to_parquet(f'{path_to_save}/rosbank_features.parquet')
+    #aggregate features for test dataset
+    df_test = df_test.drop_duplicates().reset_index(drop=True)
+
+    obj_df_agg = DataFrameAggregator(
+        df_test.drop(columns='target_target_flag'),
+        df_test[['cl_id', 'target_target_flag']],
+        idx_col='cl_id',
+        time_col ='event_time',
+        target_col = 'target_target_flag',
+        numerical_cols=['amount'],
+        cat_cols = ['mcc', 'channel_type', 'currency', 'trx_category']
+    )
+
+    obj_df_agg.transform()
+    df_test_agg = obj_df_agg.df_out_agg
+
+    #add missing columns to test dataframe
+    columns_to_add = list(set(df_train_agg.columns).difference(set(df_test_agg.columns)))
+
+    if len(columns_to_add) > 0:
+        df_test_agg[columns_to_add] = 0
+
+    #equate columns for train and test datasets
+    df_test_agg = df_test_agg[df_train_agg.columns]
+
+    #save datasets with aggregated features
+    path_to_save = Path(PATH_TO_TRAIN_DATA_SAVE)
+    path_to_save.mkdir(parents=True, exist_ok=True)
+    df_train_agg = pa.Table.from_pandas(df_train_agg)
+    pq.write_table(df_train_agg, f'{path_to_save}/rosbank_train_features.parquet')
+    
+    path_to_save = Path(PATH_TO_TEST_DATA_SAVE)
+    path_to_save.mkdir(parents=True, exist_ok=True)
+    df_test_agg = pa.Table.from_pandas(df_test_agg)
+    pq.write_table(df_test_agg, f'{path_to_save}/rosbank_test_features.parquet')

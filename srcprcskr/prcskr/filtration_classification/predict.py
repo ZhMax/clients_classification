@@ -14,7 +14,7 @@ def load_classifier_and_predict(
     dataconf: Dict[str, Any],
     modelconf: Dict[str, Any],
     targets_path: str = None,
-    path_to_file_names_to_be_excluded: str = None,       
+    path_to_examples_to_be_excluded: str = None,       
 ):
     """
         Load model from a checkpoint and get predictions on dataset
@@ -24,7 +24,7 @@ def load_classifier_and_predict(
                 To distinguish runs of predictions
             
             features_path: str
-                Path to a directory which contains files with features.
+                Path to a file with features.
 
             ckpt_resume: str = None
                 Path to a checkpoint file `*.ckpt` which is used to load the model.
@@ -39,13 +39,13 @@ def load_classifier_and_predict(
                 Model config
 
             targets_path: str
-                Path to a directory which contains files with true labels.
+                Path a file with true labels. It is supposed that features 
+                and true label related to one example from the dataset have 
+                the same index (name).
                 If it is `None`, target variable will not be returned.
-                It is supposed that the files containing features and true label 
-                for the same examples from the dataset have the same name.
 
-            path_to_file_names_to_be_excluded: str = None
-                Path to a `.txt` file which contains names of files 
+            path_to_examples_to_be_excluded: str = None
+                Path to a `.txt` file which contains names of examples
                 from the original dataset to be excluded from prediction.
         
         Returns:
@@ -65,7 +65,7 @@ def load_classifier_and_predict(
     dataset = create_datasets(
         features_path=features_path,
         random_state=random_state,
-        path_to_file_names_to_be_excluded=path_to_file_names_to_be_excluded,
+        path_to_examples_to_be_excluded=path_to_examples_to_be_excluded,
         targets_path=targets_path,
         features_dim=dataconf['features_dim'],
         split_fraction=None,

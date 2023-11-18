@@ -1,0 +1,21 @@
+data_load:
+  #path to load dataframe which is used to fit the PCA method
+  path_to_fit_dataframe: /home/storage/priceseekers/data/rosbank/rosbank_dataset/rosbank_train_features.parquet
+  #path to load dataframe for which embeddings by the PCA method will be obtained
+  path_to_transform_dataframe: /home/storage/priceseekers/data/rosbank/rosbank_dataset/test_part/rosbank_test_features.parquet
+
+  #name of the column with the target variable 
+  target_col: 'target_target_flag'
+data_save:
+  #user defined name of the dataset
+  data_name: rosbank
+  #path to a directory where embeddings and targets will be saved
+  path_to_save: /home/storage/priceseekers/data/rosbank/rosbank_dataset/test_part
+pca:
+  #standardize features before apply the PCA method
+  is_standard_scaler: True
+  #to provide the same results for different runs
+  random_state: 10
+  #the estimated number of components. 
+  n_components: 0.95
+

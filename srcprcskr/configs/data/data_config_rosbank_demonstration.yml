@@ -1,9 +1,6 @@
 #data name
 data_name: rosbank
 
-features_path: /home/storage/projects/sber_project_priceseekers/data/rosbank/rosbank_embeddings
-targets_path: /home/storage/projects/sber_project_priceseekers/data/rosbank/rosbank_targets
-
 #random state for reproducibility of computations
 random_state: 10
 
@@ -11,7 +8,7 @@ random_state: 10
 num_classes: 2
 
 #number of features in input feature vectors
-features_dim: 98
+features_dim: 112
 
 #number of workers for dataloader
 num_workers: 8

@@ -16,7 +16,7 @@ def fit_classifier(
     dataconf: Dict[str, Any],
     modelconf: Dict[str, Any],
     split_frac_train_val: float = 1.0,
-    path_to_file_names_to_be_excluded: str = None,
+    path_to_examples_to_be_excluded: str = None,
     is_forgetting: bool = False,
     metrics_on_train: bool = False,
     ckpt_resume: str = None
@@ -37,12 +37,12 @@ def fit_classifier(
             Path to directory for saving checkpoints
 
         features_path: str
-            Path to a directory which contains files with features.
+            Path to a file with features.
 
         targets_path: str
-            Path to a directory which contains files with true labels.
-            It is supposed that the files containing features and true 
-            label related to one example from the dataset have the same name.
+            Path a file with true labels. It is supposed that features 
+            and true label related to one example from the dataset have 
+            the same index (name).
 
         random_state: int = None
             To provide reproducibility of computations. If it is `None`, a value  
@@ -69,8 +69,8 @@ def fit_classifier(
             Fraction of training part of the original dataset. The value 1.0 spicifies
             that the overall dataset will be used for training.
 
-        path_to_file_names_to_be_excluded: str
-            Path to a `.txt` file which contains names of files 
+        path_to_examples_to_be_excluded: str
+            Path to a `.txt` file which contains names of examples 
             to be excluded from the original dataset for training.
 
         is_forgetting: bool = False
@@ -100,7 +100,7 @@ def fit_classifier(
         features_dim=dataconf['features_dim'],
         split_fraction=split_frac_train_val,
         targets_path=targets_path,
-        path_to_file_names_to_be_excluded=path_to_file_names_to_be_excluded,
+        path_to_examples_to_be_excluded=path_to_examples_to_be_excluded,
         mode='fit'
     )
 

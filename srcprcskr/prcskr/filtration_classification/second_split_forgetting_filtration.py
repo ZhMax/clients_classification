@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Union, Tuple
 import pandas as pd
 import numpy as np
 
-from prcskr.data_loaders.datautils import create_datasets
+from prcskr.data_loaders.datautils import save_parquetfile, create_datasets
 from prcskr.models.due.model_due import start_training, get_predictions 
 
 from prcskr.forgetting.forgettingutils import (
@@ -41,7 +41,7 @@ def filtration_of_dataset_by_second_split_forgetting(
     threshold_val: int = None,
     ckpt_resume: str = None,
     ckpt_resume_step_idx: int = None,
-    path_to_file_names_to_be_excluded: str = None
+    path_to_examples_to_be_excluded: str = None
 ):
     """
     Find examples of a dataset, that were forgotten after continuing to train 
@@ -78,12 +78,11 @@ def filtration_of_dataset_by_second_split_forgetting(
             Model config
 
         example_forgetting_dir: str = None
-            Path to a directory which will be used to save array with file names 
-            containing noisy labels. If it is `None`, then the directory with name
-            `f"{data_name}_second_forgetting"` will be created in the parent of the directory
-            `data_filepath`. The field `data_name` is included in the data configuration
-            file.
-        
+            Path to a directory which will be used to save array with noisy exmaples 
+            If it is `None`, then the directory with name `f"{data_name}_second_forgetting"`
+             will be created in the parent of the directory `data_filepath`. 
+            The field `data_name` is included in the data configuration file.
+            
         threshold_val: int = None
             Threshold value for `epoch_forget_forever`, which can be used to filtrate examples.
             If it is `None`, only examples which are forgotten after one epoch of the next 
@@ -97,8 +96,8 @@ def filtration_of_dataset_by_second_split_forgetting(
             Index of a training step for which the model is loaded from `*.ckpt`
             file.
 
-        path_to_file_names_to_be_excluded: str
-            Path to a `.txt` file which contains names of files 
+        path_to_examples_to_be_excluded: str
+            Path to a `.txt` file which contains names of examples 
             to be excluded from the original dataset for training.
 
         Returns:
@@ -107,7 +106,6 @@ def filtration_of_dataset_by_second_split_forgetting(
                 the dataset were forgotten forever and predictions given by the trained 
                 model at the second and fourth training steps.
     """
-
 
     if ckpt_resume is None:
         #If the method starts from the initial state, a training step is equal 1
@@ -132,7 +130,7 @@ def filtration_of_dataset_by_second_split_forgetting(
         targets_path=targets_path,
         random_state=random_state,
         features_dim=dataconf['features_dim'],
-        path_to_file_names_to_be_excluded=path_to_file_names_to_be_excluded,
+        path_to_examples_to_be_excluded=path_to_examples_to_be_excluded,
         split_fraction=None,
         mode='second-split-forgetting'
     )
@@ -213,7 +211,7 @@ def filtration_of_dataset_by_second_split_forgetting(
         
         
         preds_pt_label = np.argmax(preds_pt, axis=1)
-        preds_proba_max_pt_label = np.max(preds_pt, axis=1)
+        preds_proba_pt_pos = preds_pt[:, 1]
 
         ret_ft_pt = trainer_pt._forgetting_dict[run_names[step_idx-1]]
         forget_epochs_pt, file_names_pt_forget = \
@@ -221,7 +219,7 @@ def filtration_of_dataset_by_second_split_forgetting(
 
 
         preds_labels.append(preds_pt_label)
-        preds_proba.append(preds_proba_max_pt_label)
+        preds_proba.append(preds_proba_pt_pos)
         uncertainties.append(uncertainties_pt)
         dataset_inds_loader.append(dataset_inds_pt)
         dataset_file_names_loader.append(file_names_pt)
@@ -247,7 +245,7 @@ def filtration_of_dataset_by_second_split_forgetting(
 
     df_predicted = pd.DataFrame(
         data=ar_predicted, 
-        columns=['example_idx', 'file_name_loader', 
+        columns=['example_idx', 'example_name_loader', 
                     'pred_label', 'pred_proba', 
                     'uncertainty', 'true_label'])
 
@@ -259,16 +257,16 @@ def filtration_of_dataset_by_second_split_forgetting(
     
     df_forget = pd.DataFrame(
         data=ar_forget, 
-        columns=['dataset_file_name', 'epoch_forget_forever'])
+        columns=['example_name', 'epoch_forget_forever'])
     
     df_examples = pd.merge(
         df_predicted, 
         df_forget,
-        left_on='file_name_loader',
-        right_on='dataset_file_name',
+        left_on='example_name_loader',
+        right_on='example_name',
         how='left')
 
-    df_examples.drop(columns='file_name_loader', inplace=True)
+    df_examples.drop(columns='example_name_loader', inplace=True)
 
     float_cols = ['pred_proba', 'pred_label', 'uncertainty', 
                     'epoch_forget_forever', 'true_label']
@@ -278,7 +276,7 @@ def filtration_of_dataset_by_second_split_forgetting(
     df_examples[int_cols] = df_examples[int_cols].apply(lambda x: x.astype('int'))
 
     cols = [
-        'example_idx', 'dataset_file_name', 
+        'example_idx', 'example_name', 
         'pred_proba', 'uncertainty', 
         'pred_label', 'true_label',		
         'epoch_forget_forever'
@@ -300,26 +298,60 @@ def filtration_of_dataset_by_second_split_forgetting(
         example_forgetting_dir = Path(features_path)
 
     example_forgetting_dir = \
-        example_forgetting_dir / f"{dataconf['data_name']}_second_forgetting" 
+        example_forgetting_dir / f"{dataconf['data_name']}_secondsplit_forgetting" 
     example_forgetting_dir = Path(example_forgetting_dir)
 
     #Save forgetting info and clients ids for filtering  
     if not example_forgetting_dir.is_dir():
         example_forgetting_dir.mkdir(parents=True, exist_ok=True)
 
+    filtr = (df_examples['is_filtered'] == 1)
+    examples_to_be_corrected = df_examples.loc[filtr, 'example_name'].unique()
+
     file_name_to_save = \
-        example_forgetting_dir / f"{dataconf['data_name']}_second_forgetting_stats.csv"
+        example_forgetting_dir / f"{dataconf['data_name']}_secondsplit_forgetting_stats.csv"
     file_name_to_save_df = Path(file_name_to_save)
     df_examples.to_csv(file_name_to_save_df, index=False)
 
-    file_name_to_save_ser = \
-        example_forgetting_dir / f"{dataconf['data_name']}_files_to_be_excluded.txt"
-    filtr = (df_examples['is_filtered'] == 1)
-    ser_client_ids_excluded = df_examples.loc[filtr, 'dataset_file_name'].values
-    np.savetxt(file_name_to_save_ser, ser_client_ids_excluded, delimiter=" ", fmt="%s") 
+    print(f"Number of examples to exclude: {len(examples_to_be_corrected)}")
+    print(f"Examples forgetting stats are saved in {file_name_to_save_df}")
 
-    print(f"Number of examples to exclude: {ser_client_ids_excluded.size}")
-    print(f"Examples second forgetting stats are saved in {file_name_to_save_df}")
-    print(f"Files for excluding are saved in {file_name_to_save_ser}")
+    if len(examples_to_be_corrected) > 0:
+
+        #Save array with file names to excluded from the dataset in .txt file
+        file_name_to_save_ar = \
+            example_forgetting_dir / f"{dataconf['data_name']}_examples_to_be_excluded.txt"
+        np.savetxt(
+            file_name_to_save_ar, 
+            examples_to_be_corrected, 
+            delimiter=" ", 
+            fmt="%s"
+        )
+
+        #Save pd.DataFrame with corrected labels of examples
+        df_examples['corrected_label'] = df_examples['true_label']
+        filtr = df_examples['example_name'].isin(examples_to_be_corrected)
+        df_examples.loc[filtr, 'corrected_label'] = \
+            df_examples.loc[filtr, 'corrected_label']\
+                       .apply(lambda x: 1 if x==0 else 0)
+        
+        labels = df_examples['corrected_label'].values
+        objects = df_examples['example_name'].values
+        objects = [str(item) for item in objects]
+
+        targets_to_save = pd.DataFrame(data=labels, index=objects)
+
+        examples_to_be_corrected = [str(item) for item in examples_to_be_corrected]
+        targets_to_save['is_corrected'] = 0
+        targets_to_save.loc[examples_to_be_corrected, 'is_corrected'] = 1
+        path_to_save = Path(targets_path).parent
+        file_name = Path(targets_path).stem
+        path_to_save = path_to_save / f'{file_name}_corrected_by_secondsplit_forgetting.parquet'
+        path_to_save = str(path_to_save)
+
+        save_parquetfile(path_to_save, targets_to_save)
+
+        print(f"Examples for excluding are saved in {file_name_to_save_ar}")
+        print(f"Corrected labels are saved in {path_to_save}")
 
     return df_examples

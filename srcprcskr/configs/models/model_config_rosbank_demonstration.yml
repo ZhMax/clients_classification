@@ -2,7 +2,7 @@ model_name: 'Due'
 
 #parameters for Fully Connected ResNet
 fc_resnet:
-    input_dim: 98
+    input_dim: 112
     output_dim: 128
     depth: 4
     is_spectral_norm: True 
@@ -25,8 +25,8 @@ softmax_likelihood:
 
 #the checkpoint file with the highest value of track_metric 
 #will be saved during training
-ckpt_track_metric: roc_auc_score
-device: cuda
+ckpt_track_metric: pr_auc_score
+device: cpu
 #learning rate for the optimizer
-lr: !!float 1e-3
-total_epochs: 3
+lr: !!float 5e-4
+total_epochs: 50

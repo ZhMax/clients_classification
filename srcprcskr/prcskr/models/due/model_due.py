@@ -8,7 +8,7 @@ import torch.nn.functional as F
 
 from gpytorch.likelihoods import SoftmaxLikelihood
 
-from prcskr.data_loaders.datautils import IndexedDatasetFromFiles, create_dataloader
+from prcskr.data_loaders.datautils import IndexedDataset, create_dataloader
 from prcskr.models.due.src import dkl
 from prcskr.models.due.src.fc_resnet import FCResNet
 from prcskr.trainers.loss_fn.dueloss_elbo import ELBOLoss
@@ -23,7 +23,7 @@ except ImportError:
 
 
 def model_due(
-    train_dataset: IndexedDatasetFromFiles,
+    train_dataset: IndexedDataset,
     fc_resnet_input_dim: int,
     fc_resnet_output_dim: int,
     fc_resnet_depth: int,
@@ -44,7 +44,7 @@ def model_due(
     https://arxiv.org/abs/2102.11409, https://github.com/y0ast/DUE/tree/main
     
     Args:
-        train_dataset: IndexedDatasetFromFiles
+        train_dataset: IndexedDataset
             Dataset which will be used to train the model.
 
         fc_resnet_input_dim: int
@@ -128,8 +128,8 @@ def start_training(
     log_dir: str,
     ckpt_dir: str,
     ckpt_resume: str,
-    train_dataset: IndexedDatasetFromFiles,
-    val_dataset: IndexedDatasetFromFiles,
+    train_dataset: IndexedDataset,
+    val_dataset: IndexedDataset,
     random_state: int,
     total_epochs: int,
     lr: float,
@@ -163,10 +163,10 @@ def start_training(
             all state dictionaries are loaded, but the training and validation procedures
             are not conducted.
 
-        train_dataset: IndexedDatasetFromFiles
+        train_dataset: IndexedDataset
             Dataset for training the model
 
-        val_dataset: IndexedDatasetFromFiles
+        val_dataset: IndexedDataset
             Dataset for validation the model
 
         random_state: int
@@ -227,8 +227,8 @@ def start_training(
     torch.manual_seed(random_state)
     torch.cuda.manual_seed_all(random_state)
 
-    torch.backends.cudnn.benchmark = False
-    torch.use_deterministic_algorithms(False, warn_only=True)
+    torch.backends.cudnn.benchmark = True
+    torch.use_deterministic_algorithms(False)
 
     #Create dataloader for training and validation datasets
     train_dataloader = create_dataloader(
@@ -311,7 +311,7 @@ def get_predictions(
     run_name: str,
     ckpt_resume: str,
     random_state: int, 
-    dataset: IndexedDatasetFromFiles,
+    dataset: IndexedDataset,
     dataconf: Dict[str, Any],
     modelconf: Dict[str, Any],
     is_forgetting: bool = False
@@ -326,7 +326,7 @@ def get_predictions(
         ckpt_resume: str
             Path to the checkpoint to load model for making predictions.
 
-        dataset: IndexedDatasetFromFiles
+        dataset: IndexedDataset
             Dataset to load files for predicting. 
             True labels may be not included in the dataset. 
 
@@ -366,8 +366,8 @@ def get_predictions(
     torch.manual_seed(random_state)
     torch.cuda.manual_seed_all(random_state)
 
-    torch.backends.cudnn.benchmark = False
-    torch.use_deterministic_algorithms(False, warn_only=True)
+    torch.backends.cudnn.benchmark = True
+    torch.use_deterministic_algorithms(False)
 
     #Create dataloader
     loader = create_dataloader(
