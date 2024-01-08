@@ -122,10 +122,10 @@ def fit_classifier(
     )
 
     #Print path to the checkpoint associated with the last epoch
-    ckpt_resume = trainer.get_best_or_last_ckpt('last')
-    print(f'Checkpoint for the last epoch: {ckpt_resume}')
+    ckpt_resume = trainer.get_best_or_last_ckpt('best')
+    print(f'Checkpoint for the best epoch: {ckpt_resume}')
     
-    #Load the model and compute metrics on the validation datase
+    #Load the model and compute metrics on the validation dataset
     trainer.load_last_model()
     val_metrics = trainer.test(trainer._val_loader)
     

@@ -22,7 +22,8 @@ except ImportError:
     from typing_extensions import Literal
 
 from sklearn.metrics import (
-    accuracy_score, 
+    accuracy_score,
+    recall_score,
     roc_auc_score, 
     precision_recall_curve, 
     auc
@@ -487,13 +488,14 @@ class DueTrainerForgetting():
         ground_truths = ground_truths.cpu().numpy()
 
         #Compute metrics using sklearn functions
-        metrics_dict['acc_score'] = accuracy_score(ground_truths, model_preds_label)
-        metrics_dict['roc_auc_score'] = roc_auc_score(ground_truths, model_preds_proba)
-
         precision, recall, _ = precision_recall_curve(
             ground_truths, model_preds_proba
         )
         pr_recall_auc = auc(recall, precision)
+        
+        metrics_dict['acc_score'] = accuracy_score(ground_truths, model_preds_label)
+        metrics_dict['recall_score'] = recall_score(ground_truths, model_preds_label)
+        metrics_dict['roc_auc_score'] = roc_auc_score(ground_truths, model_preds_proba)
         metrics_dict['pr_auc_score'] = pr_recall_auc
 
         return metrics_dict

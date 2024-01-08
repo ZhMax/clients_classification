@@ -29,4 +29,4 @@ ckpt_track_metric: pr_auc_score
 device: cpu
 #learning rate for the optimizer
 lr: !!float 5e-4
-total_epochs: 50
+total_epochs: 360

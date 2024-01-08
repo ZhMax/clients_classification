@@ -88,8 +88,8 @@ reiliable results.
 
 ```python
 classifier.fit(
-    features_path='data/embeddings/',
-    targets_path='data/targets/',
+    features_path='data/embeddings/pca_embeddings.parquet',
+    targets_path='data/targets/labels.parquet',
     split_frac_train_val=0.8,
     random_state=None,
     total_epochs=None,
@@ -101,7 +101,7 @@ classifier.fit(
 )
 ```
 
-- **features_path** (*str*) is path to a file features. 
+- **features_path** (*str*) is path to a file with features. 
 
 - **targets_path** (*str*) is path to a file with true labels. It is supposed that features and true label related to one example from the dataset have the same index (name).
 
@@ -153,8 +153,9 @@ and can be used for excluding from the dataset in the next model trainings. By v
 `threshold_val`, examples with high value of the forgetting counts also can be excluded.
 
 ```python
-df_examples = classifier.filtration_by_forgetting(
-    data_filepath='data/embeddings/',
+df_examples_info = classifier.filtration_by_forgetting(
+    features_path='data/embeddings/pca_embeddings.parquet',
+    targets_path='data/targets/labels.parquet',
     example_forgetting_dir=None,
     threshold_val=None,
     random_state=None,
@@ -230,7 +231,8 @@ training, can be excluded.
 
 ```python
 df_examples = classifier.filtration_by_second_split_forgetting(
-    data_filepath='data/embeddings/',
+    features_path='data/embeddings/pca_embeddings.parquet',
+    targets_path='data/targets/labels.parquet',
     example_forgetting_dir=None,
     threshold_val=None,
     random_state=None,
@@ -280,7 +282,8 @@ Method to get predictions using a model loaded from a checkpoint file.
 
 ```python
 preds_proba, uncertainties, file_names, true_labels = classifier.predict(
-    features_path='data/embeddings/',
+    features_path='data/embeddings/pca_embeddings.parquet',
+    targets_path='data/targets/labels.parquet',
     ckpt_resume='ckpt_dir/data_name_fit/epoch: 0120 - acc_score: 0.7514 - roc_auc_score: 0.749 - loss: 0.3942.ckpt',
     random_state=None,
     targets_path=None,
@@ -288,7 +291,9 @@ preds_proba, uncertainties, file_names, true_labels = classifier.predict(
 )
 ```
 
-- **features_path** (*str*) is path to a file with features. 
+- **features_path** (*str*) is path to a file with features.
+
+- **targets_path** (*str*) is path to a file with labels. If it is ommited then `true_labels` is not returned.
 
 - **ckpt_resume** (*str*) is path to a checkpoint file `*.ckpt` which is used to load the model.
 

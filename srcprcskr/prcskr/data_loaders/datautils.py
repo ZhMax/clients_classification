@@ -268,7 +268,7 @@ def create_datasets(
                         example_names_pt1, examples_to_add
                     ])
 
-                    example_names_pt2 = np.set1diff1d(
+                    example_names_pt2 = np.setdiff1d(
                         example_names_pt2,
                         examples_to_add
                     )
@@ -278,7 +278,7 @@ def create_datasets(
                         example_names_pt1[0:num_examples]
                     ])
 
-                    example_names_pt1 = np.set1diff(
+                    example_names_pt1 = np.setdiff1d(
                         example_names_pt1,
                         example_names_pt2
                     )
