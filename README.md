@@ -16,7 +16,7 @@ Aggregations used:
 ```
 Aggretation functions can be extended
 
-`preprocessor` contains code to create embeddings from aggreagated features through the PCA method, can be applied for tabular data
+`preprocessor` contains code to create embeddings from aggreagated features through the PCA method, can be applied for tabular data.
 
 `srcprcskr` contains code to create classification model and perform filtration of dataset. 
 
@@ -35,7 +35,7 @@ pip3 install .
 
 ## QUICK START
 
-quick start notebook can be found in /examples/rosbank_quickstart.ipynb
+quick start notebook can be found in /examples/rosbank_demonstration.ipynb
 
 
 ## DOCUMENTATION
@@ -88,21 +88,22 @@ reiliable results.
 
 ```python
 classifier.fit(
-    data_filepath='data/embeddings/',
+    features_path='data/embeddings/pca_embeddings.parquet',
+    targets_path='data/targets/labels.parquet',
     split_frac_train_val=0.8,
     random_state=None,
     total_epochs=None,
     lr=None,
-    path_to_file_names_to_be_excluded=None,
+    path_to_examples_to_be_excluded=None,
     is_forgetting=False,
     metrics_on_train=False,
     ckpt_resume=None
 )
 ```
 
-- **data_filepath** (*str*) is path to a directory which contains files with features and labels. 
-It is supposed that each file contains vector consisting of features and a label of 
-an example (in the last component).
+- **features_path** (*str*) is path to a file with features. 
+
+- **targets_path** (*str*) is path to a file with true labels. It is supposed that features and true label related to one example from the dataset have the same index (name).
 
 - **split_frac_train_val** (*float*) is fraction of training part size from the size of the full dataset. 
 The value 1.0 spicifies that the full dataset will be used for training.
@@ -118,7 +119,7 @@ will be used.
 - **lr** (*float*) is learning rate in an optimizer. If it is `None`, a value from
 the field `lr` of the model configuration file will be used.
 
-- **path_to_file_names_to_be_excluded** (*str*) is path to a `.txt` file which contains names of files 
+- **path_to_examples_to_be_excluded** (*str*) is path to a `.txt` file which contains names of examples 
 to be excluded from the original dataset for training.
 
 - **is_forgetting** (*bool*) inidicates that the masks required for computing 
@@ -152,8 +153,9 @@ and can be used for excluding from the dataset in the next model trainings. By v
 `threshold_val`, examples with high value of the forgetting counts also can be excluded.
 
 ```python
-df_examples = classifier.filtration_by_forgetting(
-    data_filepath='data/embeddings/',
+df_examples_info = classifier.filtration_by_forgetting(
+    features_path='data/embeddings/pca_embeddings.parquet',
+    targets_path='data/targets/labels.parquet',
     example_forgetting_dir=None,
     threshold_val=None,
     random_state=None,
@@ -161,15 +163,15 @@ df_examples = classifier.filtration_by_forgetting(
     lr=None,
     verbose=True,
     ckpt_resume=None,
-    path_to_file_names_to_be_excluded=None
+    path_to_examples_to_be_excluded=None
 )
 ```
 
-- **data_filepath** (*str*) is path to a directory which contains files with features and labels. 
-It is supposed that each file contains vector consisting of an embedding and a label of an example (in the last component).
+- **features_path** (*str*) is path to a file with features.  
 
-- **example_forgetting_dir** (*str*) is path to a directory which will be used to save array with file names 
-containing noisy labels. If it is `None`, then the directory with name `f"{data_name}_forgetting"` will be created in the parent of the directory `data_filepath`. The field `data_name` is provided by the data configuration file.
+- **targets_path** (*str*) is path to a file with true labels. It is supposed that features and true label related to one example from the dataset have the same index (name).
+
+- **example_forgetting_dir** (*str*) is path to a directory which will be used to save array with noisy examples. If it is `None`, then the directory with name `f"{data_name}_forgetting"` will be created in the parent of the directory `data_filepath`. The field `data_name` is provided by the data configuration file.
 
 - **threshold_val** (*int*) is the threshold value for `forgetting_counts`, which can be used to filtrate examples.
 If it is `None`, only unlearned examples will be proposed for excluding from the dataset. 
@@ -188,7 +190,7 @@ the field `lr` of the model configuration file will be used.
 - **ckpt_resume** (*str*) is path to a checkpoint file `*.ckpt` which is used to load the model
 and masks collected during training. It should be `None` to train a model from an initial state.     
 
-- **path_to_file_names_to_be_excluded** (*str*) is path to a `.txt` file which contains names of files 
+- **path_to_examples_to_be_excluded** (*str*) is path to a `.txt` file which contains names of examples 
 to be excluded from the original dataset for training.
 
 *Returns:*
@@ -229,7 +231,8 @@ training, can be excluded.
 
 ```python
 df_examples = classifier.filtration_by_second_split_forgetting(
-    data_filepath='data/embeddings/',
+    features_path='data/embeddings/pca_embeddings.parquet',
+    targets_path='data/targets/labels.parquet',
     example_forgetting_dir=None,
     threshold_val=None,
     random_state=None,
@@ -237,15 +240,15 @@ df_examples = classifier.filtration_by_second_split_forgetting(
     lr=None,
     verbose=True,
     ckpt_resume=None,
-    path_to_file_names_to_be_excluded=None
+    path_to_examples_to_be_excluded=None
 )
 ```
 
-- **data_filepath** (*str*) is path to a directory which contains files with features and labels. 
-It is supposed that each file contains vector consisting of an embedding and a label of an example (in the last component).
+- **features_path** (*str*) is path to a file with features. 
 
-- **example_forgetting_dir** (*str*) is path to a directory which will be used to save array with file names 
-containing noisy labels. If it is `None`, then the directory with name `f"{data_name}_forgetting"` will be created in the parent of the directory `data_filepath`. The field `data_name` is provided by the data configuration file.
+- **targets_path** (*str*) is path to a file with true labels. It is supposed that features and true label related to one example from the dataset have the same index (name).
+
+- **example_forgetting_dir** (*str*) is path to a directory which will be used to save array with noisy examples. If it is `None`, then the directory with name `f"{data_name}_forgetting"` will be created in the parent of the directory `data_filepath`. The field `data_name` is provided by the data configuration file.
 
 - **threshold_val** (*int*) is the threshold value for `epoch_forget_forever`, which can be used to filtrate examples.
 If it is `None`, only examples which are forgotten after one epoch of the next 
@@ -265,7 +268,7 @@ the field `lr` of the model configuration file will be used.
 - **ckpt_resume** (*str*) is path to a checkpoint file `*.ckpt` which is used to load the model
 and masks collected during training. It should be `None` to train a model from an initial state.     
 
-- **path_to_file_names_to_be_excluded** (*str*) is path to a `.txt` file which contains names of files 
+- **path_to_examples_to_be_excluded** (*str*) is path to a `.txt` file which contains names of examples 
 to be excluded from the original dataset for training.
 
 *Returns:*
@@ -279,24 +282,26 @@ Method to get predictions using a model loaded from a checkpoint file.
 
 ```python
 preds_proba, uncertainties, file_names, true_labels = classifier.predict(
-    data_filepath='data/embeddings/',
+    features_path='data/embeddings/pca_embeddings.parquet',
+    targets_path='data/targets/labels.parquet',
     ckpt_resume='ckpt_dir/data_name_fit/epoch: 0120 - acc_score: 0.7514 - roc_auc_score: 0.749 - loss: 0.3942.ckpt',
     random_state=None,
-    is_target_col=True,
-    path_to_file_names_to_be_excluded='data/data_name_second_forgetting/data_name_files_to_be_excluded.txt'
+    targets_path=None,
+    path_to_examples_to_be_excluded='data/data_name_second_forgetting/data_name_files_to_be_excluded.txt'
 )
 ```
 
-- **data_filepath** (*str*) is path to a directory which contains files with features. 
-If the files also contain labels, they should be in the last component of the vectors.
+- **features_path** (*str*) is path to a file with features.
+
+- **targets_path** (*str*) is path to a file with labels. If it is ommited then `true_labels` is not returned.
 
 - **ckpt_resume** (*str*) is path to a checkpoint file `*.ckpt` which is used to load the model.
 
 - **random_state** (*int*) is uded to provide reproducibility of computations. If it is `None`, a value  
 from the field `random_state` from the data configuration file will be used.
 
-- **is_target_col** (*bool*) indicates that a value of a target variable is included into to the input vector.
+- **targets_path** (*str*) is a path to a file with true labels. If it is omitted, than true labels predictions will not be returned.
 
-- **path_to_file_names_to_be_excluded** (*str*) is path to a `.txt` file which contains names of files 
+- **path_to_examples_to_be_excluded** (*str*) is path to a `.txt` file which contains names of examples 
 to be excluded from the original dataset for training.
 

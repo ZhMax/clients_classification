@@ -2,6 +2,9 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
+import pyarrow.dataset as pa_dataset
 
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -15,50 +18,42 @@ except ImportError:
     from typing_extensions import Literal
 
 
-class IndexedDatasetFromFiles(Dataset):
+def save_parquetfile(path_to_save, df):
+    """Save parquet file"""
+    pa_tab = pa.Table.from_pandas(df)
+    pq.write_table(pa_tab, path_to_save)
+
+
+class IndexedDataset(Dataset):
     """Dataset for loading data vectors from `.npy` files."""
 
     def __init__(
         self,
-        data_filepath: str,
-        features_dim: int,
-        is_target_col: bool = True,
-        datafile_names: List[str] = None,
+        example_names: list,
+        features: Dict[str, np.array],
+        targets: Dict[str, np.array] = None,
     ):
         """
         Parameters
         ----------
-            data_file_path: str 
-                The directory where files with feature vectors are placed.
-                If a vector include target class, it should be in the last component.
+            example_names: list
+                List contains names of examples from a dataset
 
-            features_dim: int
-                Dimension (the number of components) of the feature vector
+            features: Dict[str, float]
+                Dictionary contains for each example its name and 
+                vector with features
 
-            is_target_col: bool
-                Is a value of a target variable included into to the feature vector?
-                If it is `False`, target variable will not be returned.
-
-            datafile_names: (str) = None
-                Names of files are included in the dataset. If it is `None`,
-                all `.npy` files containing in the directory will be chosen.
+            targets: Dict[str, np.array] = None
+                Dictionary contains for each example its name and 
+                true label
         """
 
-        super(IndexedDatasetFromFiles, self).__init__()
+        super(IndexedDataset, self).__init__()
 
-        self._data_filepath = Path(data_filepath)
+        self._example_names = example_names
         
-        self._features_dim = features_dim
-        self._is_target_col = is_target_col
-
-        #files included in the dataset
-        if datafile_names is None:
-            self._all_data_files = list(self._data_filepath.glob('*.npy'))
-        else:
-            all_data_files = list(self._data_filepath.glob('*.npy'))
-            self._all_data_files = [file_name for file_name in all_data_files 
-                                              if file_name.stem in datafile_names]
-
+        self._features = features
+        self._targets = targets
 
     def __getitem__(self, idx: int):
         """
@@ -66,34 +61,30 @@ class IndexedDatasetFromFiles(Dataset):
         in `all_data_files`
         """
 
-        file_name = self._all_data_files[idx]
-        input_vec = np.load(file_name)
+        example_name = self._example_names[idx]
+        x = self._features[example_name]
+        x = np.asarray(x)
+        x = torch.from_numpy(x).float()
 
-        if self._is_target_col:
-            x = input_vec[0:self._features_dim]
-            x = torch.from_numpy(x).float()
-
-            y = np.array(input_vec[-1])
+        if self._targets is not None:
+            target = self._targets[example_name]
+            y = np.asarray(target)
             y = torch.from_numpy(y).int()
             return x, y, idx
 
         else:
-            x = input_vec[0:self._features_dim]
-            x = torch.from_numpy(x).float()
-
             y = None
-
             return x, idx
             
 
     def __len__(self):
-        return len(self._all_data_files)
+        return len(self._example_names)
 
     
     def get_file_name(self, idx: int):
-        """Get file name without extension by idx"""
-        file_name = self._all_data_files[idx]
-        return file_name.stem
+        """Get example by idx"""
+        example_name = self._example_names[idx]
+        return example_name
 
 
 def split_array_into_twoparts_by_inds(
@@ -129,12 +120,12 @@ def split_array_into_twoparts_by_inds(
 
 
 def create_datasets(
-    data_filepath: str,
+    features_path: str,
     random_state: int,
     features_dim: int,
     mode: Literal['predict', 'fit', 'forgetting', 'second-split-forgetting'],
-    is_target_col: bool = True,
-    path_to_file_names_to_be_excluded: str = None,
+    targets_path: str = None,
+    path_to_examples_to_be_excluded: str = None,
     split_fraction: float = None
 ):
     """
@@ -155,10 +146,13 @@ def create_datasets(
             Depending on the value of the argument, datasets will be created to train 
             the model, to get predictions or to find noisy examples by forgetting methods
         
-        is_target_col: bool = True
-            Is a value of a target variable included into to the feature vector?
+        targets_path: str = None
+            Path to a directory which contains files with true labels.
+            It is supposed that the files containing features and true label 
+            related to one example from the dataset have the same name. If it is `None`, 
+            target variable will not be returned.
 
-        path_to_file_names_to_be_excluded: str
+        path_to_examples_to_be_excluded: str
             Path to a `.txt` file which contains names of files 
             to be excluded from the original dataset.
 
@@ -166,26 +160,82 @@ def create_datasets(
         Relation between sizes of the first part and the input array.
     """
 
-    #Find `*.npy` files to include into datasets 
-    data_filepath = Path(data_filepath)
-    all_data_files = list(data_filepath.glob('*.npy'))
-    datafiles_names = [file_id.stem for file_id in all_data_files]
+    #Load pyarrow datasets
+    ds_features = pa_dataset.dataset(features_path)
+    
+    if targets_path is not None:
+        ds_targets = pa_dataset.dataset(targets_path)
 
-    #Exclude files with names containing in .txt file
-    #given by path_to_file_names_to_be_excluded
-    if path_to_file_names_to_be_excluded is not None:
-        file_name = path_to_file_names_to_be_excluded
+    #get np arrays
+    if path_to_examples_to_be_excluded is None:
+        example_names = np.array(
+            ds_features.scanner(
+                columns=['__index_level_0__']
+            ).to_table()
+        )[0]
+
+        features = np.array(
+            ds_features.scanner(
+                columns=[str(item) for item in range(0, features_dim)]
+            ).to_table()
+        )
+
+        if targets_path is not None:
+            targets = ds_targets.to_table()
+            labels = np.array(targets[0])
+            target_names = np.array(targets['__index_level_0__'])
+
+    else:
+        file_name = path_to_examples_to_be_excluded
         excluded_names = np.loadtxt(file_name, delimiter=' ', dtype='str')
-        datafiles_names = [item for item in datafiles_names if item not in excluded_names]
+
+        example_names = np.array(
+            ds_features.scanner(
+                columns=['__index_level_0__'],
+                filter=(~pa_dataset.field('__index_level_0__').isin(excluded_names))
+            ).to_table()
+        )[0]
+
+        features = np.array(
+            ds_features.scanner(
+                columns=[str(item) for item in range(0, features_dim)],
+                filter=(~pa_dataset.field('__index_level_0__').isin(excluded_names))
+            ).to_table()
+        )
+
+        if targets_path is not None:
+            targets = ds_targets.scanner(
+                filter=(~pa_dataset.field('__index_level_0__').isin(excluded_names))
+            ).to_table()
+            labels = np.array(targets[0])
+            target_names = np.array(targets['__index_level_0__'])
+
         print(f"From the dataset {len(excluded_names)} files are excluded.")
 
-    #Create datasets
+    #create dictionaries with features and targets
+    features = features.T
+    features = {k: v for k, v in zip(example_names, features)}
+
+    if targets_path is not None:
+        corrected_target_names = None
+        if 'is_corrected' in targets.column_names:
+            mask = (np.array(targets['is_corrected']) == 1)
+            if mask.sum() > 0:
+                corrected_target_names = target_names[mask]
+    
+        targets = {k: int(v) for k, v in zip(target_names, labels)}
+
+    else:
+        targets = None
+
+
+    #create datasets
     if mode == 'predict':
-        dataset_pt1 = IndexedDatasetFromFiles(
-            data_filepath=data_filepath, 
-            features_dim=features_dim,
-            is_target_col=is_target_col,
-            datafile_names=datafiles_names)
+        dataset_pt1 = IndexedDataset(
+            example_names, 
+            features, 
+            targets
+        )
         dataset_pt2 = None
 
         return dataset_pt1
@@ -195,41 +245,79 @@ def create_datasets(
             split_fraction = 1.0
 
         if split_fraction < 1.0:
+
             inds_pt1, inds_pt2 = split_array_into_twoparts_by_inds(
-                datafiles_names, 
+                example_names, 
                 random_state,
                 split_fraction
             )
 
-            datafiles_names_pt1 = [datafiles_names[i] for i in inds_pt1]
-            datafiles_names_pt2 = [datafiles_names[i] for i in inds_pt2]
+            example_names_pt1 = [item for item in example_names[inds_pt1]]
+            example_names_pt2 = [item for item in example_names[inds_pt2]]
 
-            dataset_pt1 = IndexedDatasetFromFiles(
-                data_filepath=data_filepath, 
-                features_dim=features_dim,
-                datafile_names=datafiles_names_pt1)
-            dataset_pt2 = IndexedDatasetFromFiles(
-                data_filepath=data_filepath, 
-                features_dim=features_dim, 
-                datafile_names=datafiles_names_pt2)
+            #add examples with corrected label to train_dataset
+            if corrected_target_names is not None:
+                examples_to_add = np.setdiff1d(
+                    corrected_target_names, 
+                    example_names_pt1
+                )
+
+                num_examples = examples_to_add.size
+                if num_examples > 0:
+                    example_names_pt1 = np.concatenate([
+                        example_names_pt1, examples_to_add
+                    ])
+
+                    example_names_pt2 = np.setdiff1d(
+                        example_names_pt2,
+                        examples_to_add
+                    )
+
+                    example_names_pt2 = np.concatenate([
+                        example_names_pt2,
+                        example_names_pt1[0:num_examples]
+                    ])
+
+                    example_names_pt1 = np.setdiff1d(
+                        example_names_pt1,
+                        example_names_pt2
+                    )
+
+                    example_names_pt1 = list(example_names_pt1)
+                    example_names_pt2 = list(example_names_pt2)
+
+            #create datasets
+            dataset_pt1 = IndexedDataset(
+                example_names_pt1, 
+                features, 
+                targets
+            )
+            dataset_pt2 = IndexedDataset(
+                example_names_pt2, 
+                features, 
+                targets
+            )
         
         else:
-            dataset_pt1 = IndexedDatasetFromFiles(
-                data_filepath=data_filepath, 
-                features_dim=features_dim, 
-                datafile_names=datafiles_names)
-            dataset_pt2 = IndexedDatasetFromFiles(
-                data_filepath=data_filepath, 
-                features_dim=features_dim, 
-                datafile_names=datafiles_names)
+            dataset_pt1 = IndexedDataset(
+                example_names, 
+                features, 
+                targets
+            )
+            dataset_pt2 = IndexedDataset(
+                example_names, 
+                features, 
+                targets
+            )
 
         return dataset_pt1, dataset_pt2
     
     elif mode == 'forgetting':
-        dataset_pt1 = IndexedDatasetFromFiles(
-            data_filepath=data_filepath, 
-            features_dim=features_dim, 
-            datafile_names=datafiles_names)
+        dataset_pt1 = IndexedDataset(
+            example_names, 
+            features, 
+            targets
+        )
         dataset_pt2 = None
 
         return dataset_pt1
@@ -238,24 +326,25 @@ def create_datasets(
         if split_fraction is None:
             split_fraction = 0.5
 
-        inds_pt1, inds_pt2 = split_array_into_twoparts_by_inds(
-            datafiles_names, 
-            random_state,
-            split_fraction
-        )
+            inds_pt1, inds_pt2 = split_array_into_twoparts_by_inds(
+                example_names, 
+                random_state,
+                split_fraction
+            )
 
+            example_names_pt1 = [item for item in example_names[inds_pt1]]
+            example_names_pt2 = [item for item in example_names[inds_pt2]]
 
-        datafiles_names_pt1 = [datafiles_names[i] for i in inds_pt1]
-        datafiles_names_pt2 = [datafiles_names[i] for i in inds_pt2]
-
-        dataset_pt1 = IndexedDatasetFromFiles(
-            data_filepath=data_filepath, 
-            features_dim=features_dim, 
-            datafile_names=datafiles_names_pt1)
-        dataset_pt2 = IndexedDatasetFromFiles(
-            data_filepath=data_filepath, 
-            features_dim=features_dim,
-            datafile_names=datafiles_names_pt2)
+            dataset_pt1 = IndexedDataset(
+                example_names_pt1, 
+                features, 
+                targets
+            )
+            dataset_pt2 = IndexedDataset(
+                example_names_pt2, 
+                features, 
+                targets
+            )
 
         return dataset_pt1, dataset_pt2
     else:
@@ -285,5 +374,3 @@ def create_dataloader(
     )
 
     return torch_loader
-
-

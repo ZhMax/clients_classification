@@ -8,14 +8,15 @@ def fit_classifier(
     run_name: str, 
     log_dir: str,
     ckpt_dir: str,
-    data_filepath: str,
+    features_path: str,
+    targets_path: str,
     random_state: int,
     total_epochs: int,
     lr: float,
     dataconf: Dict[str, Any],
     modelconf: Dict[str, Any],
     split_frac_train_val: float = 1.0,
-    path_to_file_names_to_be_excluded: str = None,
+    path_to_examples_to_be_excluded: str = None,
     is_forgetting: bool = False,
     metrics_on_train: bool = False,
     ckpt_resume: str = None
@@ -35,10 +36,13 @@ def fit_classifier(
         ckpt_dir: str
             Path to directory for saving checkpoints
 
-        data_filepath: str
-            Path to a directory which contains files with features and labels. 
-            It is supposed that each file contains vector consisting of
-            an embedding and a label of an example (in the last component).
+        features_path: str
+            Path to a file with features.
+
+        targets_path: str
+            Path a file with true labels. It is supposed that features 
+            and true label related to one example from the dataset have 
+            the same index (name).
 
         random_state: int = None
             To provide reproducibility of computations. If it is `None`, a value  
@@ -65,8 +69,8 @@ def fit_classifier(
             Fraction of training part of the original dataset. The value 1.0 spicifies
             that the overall dataset will be used for training.
 
-        path_to_file_names_to_be_excluded: str
-            Path to a `.txt` file which contains names of files 
+        path_to_examples_to_be_excluded: str
+            Path to a `.txt` file which contains names of examples 
             to be excluded from the original dataset for training.
 
         is_forgetting: bool = False
@@ -91,11 +95,12 @@ def fit_classifier(
 
     #Create training and validation datasets
     train_dataset, val_dataset = create_datasets(
-        data_filepath=data_filepath,
+        features_path=features_path,
         random_state=random_state,
         features_dim=dataconf['features_dim'],
         split_fraction=split_frac_train_val,
-        path_to_file_names_to_be_excluded=path_to_file_names_to_be_excluded,
+        targets_path=targets_path,
+        path_to_examples_to_be_excluded=path_to_examples_to_be_excluded,
         mode='fit'
     )
 
@@ -117,10 +122,10 @@ def fit_classifier(
     )
 
     #Print path to the checkpoint associated with the last epoch
-    ckpt_resume = trainer.get_best_or_last_ckpt('last')
-    print(f'Checkpoint for the last epoch: {ckpt_resume}')
+    ckpt_resume = trainer.get_best_or_last_ckpt('best')
+    print(f'Checkpoint for the best epoch: {ckpt_resume}')
     
-    #Load the model and compute metrics on the validation datase
+    #Load the model and compute metrics on the validation dataset
     trainer.load_last_model()
     val_metrics = trainer.test(trainer._val_loader)
     

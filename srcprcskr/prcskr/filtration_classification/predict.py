@@ -8,13 +8,13 @@ from prcskr.models.due.model_due import get_predictions
 
 def load_classifier_and_predict(
     run_name: str,
-    data_filepath: str,
+    features_path: str,
     ckpt_resume: str,
     random_state: int,
     dataconf: Dict[str, Any],
     modelconf: Dict[str, Any],
-    is_target_col: bool = True,
-    path_to_file_names_to_be_excluded: str = None,       
+    targets_path: str = None,
+    path_to_examples_to_be_excluded: str = None,       
 ):
     """
         Load model from a checkpoint and get predictions on dataset
@@ -23,10 +23,8 @@ def load_classifier_and_predict(
             run_name: str
                 To distinguish runs of predictions
             
-            data_filepath: str
-                Path to a directory which contains files with features.
-                If the files also contain labels, they should be in
-                the last component of the vectors.
+            features_path: str
+                Path to a file with features.
 
             ckpt_resume: str = None
                 Path to a checkpoint file `*.ckpt` which is used to load the model.
@@ -40,12 +38,14 @@ def load_classifier_and_predict(
             modelconf: Dict[str, Any]
                 Model config
 
-            is_target_col: bool = True
-            Is a value of a target variable included into to the feature vector?
-            If it is `False`, target variable will be returned as `None`.
+            targets_path: str
+                Path a file with true labels. It is supposed that features 
+                and true label related to one example from the dataset have 
+                the same index (name).
+                If it is `None`, target variable will not be returned.
 
-            path_to_file_names_to_be_excluded: str = None
-                Path to a `.txt` file which contains names of files 
+            path_to_examples_to_be_excluded: str = None
+                Path to a `.txt` file which contains names of examples
                 from the original dataset to be excluded from prediction.
         
         Returns:
@@ -63,10 +63,10 @@ def load_classifier_and_predict(
     """
     
     dataset = create_datasets(
-        data_filepath=data_filepath,
+        features_path=features_path,
         random_state=random_state,
-        path_to_file_names_to_be_excluded=path_to_file_names_to_be_excluded,
-        is_target_col=is_target_col,
+        path_to_examples_to_be_excluded=path_to_examples_to_be_excluded,
+        targets_path=targets_path,
         features_dim=dataconf['features_dim'],
         split_fraction=None,
         mode='predict'

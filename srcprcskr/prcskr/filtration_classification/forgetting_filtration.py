@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Union, Tuple
 import pandas as pd
 import numpy as np
 
-from prcskr.data_loaders.datautils import create_datasets
+from prcskr.data_loaders.datautils import save_parquetfile, create_datasets
 from prcskr.models.due.model_due import start_training, get_predictions 
 
 from prcskr.forgetting.forgettingutils import (
@@ -19,7 +19,8 @@ def filtration_of_dataset_by_forgetting(
     run_name: str,
     log_dir: str,
     ckpt_dir: str,
-    data_filepath: str,
+    features_path: str,
+    targets_path: str,
     random_state: int,
     total_epochs: int,
     lr: float,
@@ -28,7 +29,7 @@ def filtration_of_dataset_by_forgetting(
     example_forgetting_dir: str = None,
     threshold_val: int = None,
     ckpt_resume: str = None,
-    path_to_file_names_to_be_excluded: str = None
+    path_to_examples_to_be_excluded: str = None
 ): 
 
     """
@@ -46,10 +47,13 @@ def filtration_of_dataset_by_forgetting(
         ckpt_dir: str
             Path to directory for saving checkpoints
 
-        data_filepath: str
-            Path to a directory which contains files with features and labels. 
-            It is supposed that each file contains vector consisting of
-            an embedding and a label of an example (in the last component).
+        features_path: str
+            Path to a file with features.
+
+        targets_path: str
+            Path a file with true labels. It is supposed that features 
+            and true label related to one example from the dataset have 
+            the same index (name).
 
         random_state: int = None
             To provide reproducibility of computations. If it is `None`, a value  
@@ -73,8 +77,8 @@ def filtration_of_dataset_by_forgetting(
             Model config
 
         example_forgetting_dir: str = None
-            Path to a directory which will be used to save array with file names 
-            containing noisy labels. If it is `None`, then the directory with name
+            Path to a directory which will be used to save array with names of 
+            noisy examples. If it is `None`, then the directory with name
             `f"{data_name}_forgetting"` will be created in the parent of the directory
             `data_filepath`. The field `data_name` is provided by the data configuration
             file.
@@ -88,8 +92,8 @@ def filtration_of_dataset_by_forgetting(
             Path to a checkpoint file `*.ckpt` which is used to load the model.
             It should be `None` to train a model from an initial state.
 
-        path_to_file_names_to_be_excluded: str
-            Path to a `.txt` file which contains names of files 
+        path_to_examples_to_be_excluded: str
+            Path to a `.txt` file which contains names of examples 
             to be excluded from the original dataset for training.
 
         Returns:
@@ -103,10 +107,11 @@ def filtration_of_dataset_by_forgetting(
 
     #Create training dataset from files given by data_filepath
     train_dataset = create_datasets(
-        data_filepath=data_filepath,
+        features_path=features_path,
+        targets_path=targets_path,
         random_state=random_state,
         features_dim=dataconf['features_dim'],
-        path_to_file_names_to_be_excluded=path_to_file_names_to_be_excluded,
+        path_to_examples_to_be_excluded=path_to_examples_to_be_excluded,
         split_fraction=None,
         mode='forgetting'
     )
@@ -144,11 +149,11 @@ def filtration_of_dataset_by_forgetting(
         )
     
     preds_label = np.argmax(preds, axis=1)
-    preds_proba_max_label = np.max(preds, axis=1)
+    preds_proba = preds[:, 1]
 
     ar_predicted = np.vstack([
         dataset_inds, file_names,
-        preds_label, preds_proba_max_label, uncertainties, gts
+        preds_label, preds_proba, uncertainties, gts
     ]).T
 
     df_predicted = pd.DataFrame(
@@ -170,14 +175,14 @@ def filtration_of_dataset_by_forgetting(
     #Combine found values in a pd.DataFrame
     df_forget = pd.DataFrame(
         data=ar_forget, 
-        columns=['dataset_file_name', 'learn_epoch', 'forgetting_counts'])
+        columns=['example_name', 'learn_epoch', 'forgetting_counts'])
     
     #Merge pd.DataFrames based on file_name
     df_examples = pd.merge(
         df_predicted, 
         df_forget,
         left_on='file_name_loader',
-        right_on='dataset_file_name',
+        right_on='example_name',
         how='left')
     df_examples.drop(columns='file_name_loader', inplace=True)   
 
@@ -194,7 +199,7 @@ def filtration_of_dataset_by_forgetting(
     df_examples[int_cols] = df_examples[int_cols].apply(lambda x: x.astype('int'))
 
     cols = [
-        'example_idx', 'dataset_file_name', 
+        'example_idx', 'example_name', 
         'pred_proba', 'uncertainty', 
         'pred_label', 'true_label',		
         'learn_epoch', 'forgetting_counts'
@@ -221,9 +226,9 @@ def filtration_of_dataset_by_forgetting(
 
     #Specify directory to save results
     if example_forgetting_dir is None:
-        example_forgetting_dir = Path(data_filepath).parent
+        example_forgetting_dir = Path(features_path).parent
     else:
-        example_forgetting_dir = Path(data_filepath)
+        example_forgetting_dir = Path(features_path)
 
     example_forgetting_dir = \
         example_forgetting_dir / f"{dataconf['data_name']}_forgetting" 
@@ -232,21 +237,56 @@ def filtration_of_dataset_by_forgetting(
     if not example_forgetting_dir.is_dir():
         example_forgetting_dir.mkdir(parents=True, exist_ok=True)
 
+    filtr = (df_examples['is_filtered'] == 1)
+    examples_to_be_corrected = df_examples.loc[filtr, 'example_name'].unique()
+
     #Save pd.DataFrame with the forgeeting values and the model predictions in .csv file
     file_name_to_save = \
         example_forgetting_dir / f"{dataconf['data_name']}_forgetting_stats.csv"
     file_name_to_save_df = Path(file_name_to_save)
     df_examples.to_csv(file_name_to_save_df, index=False)
 
-    #Save array with file names to excluded from the dataset in .txt file
-    file_name_to_save_ser = \
-        example_forgetting_dir / f"{dataconf['data_name']}_files_to_be_excluded.txt"
-    filtr = (df_examples['is_filtered'] == 1)
-    ser_client_ids_excluded = df_examples.loc[filtr, 'dataset_file_name'].values
-    np.savetxt(file_name_to_save_ser, ser_client_ids_excluded, delimiter=" ", fmt="%s")
-
-    print(f"Number of examples to exclude: {ser_client_ids_excluded.size}")
+    print(f"Number of examples to exclude: {len(examples_to_be_corrected)}")
     print(f"Examples forgetting stats are saved in {file_name_to_save_df}")
-    print(f"Files for excluding are saved in {file_name_to_save_ser}")
+
+
+
+    if len(examples_to_be_corrected) > 0:
+
+        #Save array with file names to excluded from the dataset in .txt file
+        file_name_to_save_ar = \
+            example_forgetting_dir / f"{dataconf['data_name']}_examples_to_be_excluded.txt"
+        np.savetxt(
+            file_name_to_save_ar, 
+            examples_to_be_corrected, 
+            delimiter=" ", 
+            fmt="%s"
+        )
+
+        #Save pd.DataFrame with corrected labels of examples
+        df_examples['corrected_label'] = df_examples['true_label']
+        filtr = df_examples['example_name'].isin(examples_to_be_corrected)
+        df_examples.loc[filtr, 'corrected_label'] = \
+            df_examples.loc[filtr, 'corrected_label']\
+                       .apply(lambda x: 1 if x==0 else 0)
+        
+        labels = df_examples['corrected_label'].values
+        objects = df_examples['example_name'].values
+        objects = [str(item) for item in objects]
+
+        targets_to_save = pd.DataFrame(data=labels, index=objects)
+
+        examples_to_be_corrected = [str(item) for item in examples_to_be_corrected]
+        targets_to_save['is_corrected'] = 0
+        targets_to_save.loc[examples_to_be_corrected, 'is_corrected'] = 1
+        path_to_save = Path(targets_path).parent
+        file_name = Path(targets_path).stem
+        path_to_save = path_to_save / f'{file_name}_corrected_by_forgetting.parquet'
+        path_to_save = str(path_to_save)
+
+        save_parquetfile(path_to_save, targets_to_save)
+
+        print(f"Examples for excluding are saved in {file_name_to_save_ar}")
+        print(f"Corrected labels are saved in {path_to_save}")
 
     return df_examples, trainer

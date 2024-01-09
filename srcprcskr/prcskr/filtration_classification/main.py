@@ -48,12 +48,13 @@ class FilteredClassifier():
     Methods
     -------
         fit(
-            data_filepath: str,
+            features_path: str,
+            targets_path: str,
             split_frac_train_val: float = 1.0,
             random_state: int = None,
             total_epochs: int = None,
             lr: float = None,
-            path_to_file_names_to_be_excluded: str = None,
+            path_to_examples_to_be_excluded: str = None,
             is_forgetting: bool = False,
             metrics_on_train: bool = False,
             ckpt_resume: str = None
@@ -78,7 +79,8 @@ class FilteredClassifier():
             reiliable results.
 
         filtration_by_forgetting(
-            data_filepath: str,
+            features_path: str,
+            targets_path: str,
             example_forgetting_dir: str = None,
             threshold_val: int = None,
             random_state: int = None,
@@ -86,7 +88,7 @@ class FilteredClassifier():
             lr: float = None,
             verbose: str = True,
             ckpt_resume: str = None,
-            path_to_file_names_to_be_excluded: str = None
+            path_to_examples_to_be_excluded: str = None
         )
             An implementation of a method to find noisy examples (mislabeled examples) in dataset by
             counting the forgetting of examples during training. The method is named as the forgetting 
@@ -107,7 +109,8 @@ class FilteredClassifier():
 
         
         filtration_by_second_split_forgetting(
-                data_filepath: str,
+                features_path: str,
+                targets_path: str,
                 example_forgetting_dir: str = None,
                 threshold_val: int = None,
                 random_state: int = None,
@@ -115,7 +118,7 @@ class FilteredClassifier():
                 lr: float = None,
                 verbose: str = True,
                 ckpt_resume: str = None,
-                path_to_file_names_to_be_excluded: str = None
+                path_to_examples_to_be_excluded: str = None
         )
             An implementation of a method to find noisy examples (mislabeled examples) in dataset by 
             sequential model training on its parts and counting forgetting of the examples. The method 
@@ -147,11 +150,11 @@ class FilteredClassifier():
             training, can be excluded.
  
         predict(
-            data_filepath: str,
+            features_path: str,
             ckpt_resume: str,
             random_state: int = None,
-            is_target_col: bool = True,
-            path_to_file_names_to_be_excluded: str = None
+            targets_path: str = None,
+            path_to_examples_to_be_excluded: str = None
         )
             A method to load model from chekpoint file given by `ckpt_resume` and get predictions for
             a dataset given by `data_filepath`.
@@ -218,12 +221,13 @@ class FilteredClassifier():
 
     def fit(
         self,
-        data_filepath: str,
+        features_path: str,
+        targets_path: str, 
         split_frac_train_val: float = 1.0,
         random_state: int = None,
         total_epochs: int = None,
         lr: float = None,
-        path_to_file_names_to_be_excluded: str = None,
+        path_to_examples_to_be_excluded: str = None,
         is_forgetting: bool = False,
         metrics_on_train: bool = False,
         ckpt_resume: str = None
@@ -232,10 +236,13 @@ class FilteredClassifier():
         Method to train model for solving classification problem.
 
         Args:
-            data_filepath: str
-                Path to a directory which contains files with features and labels. 
-                It is supposed that each file contains vector consisting of
-                features and a label of an example (in the last component).
+            features_path: str
+                Path to a file with features.
+
+            targets_path: str
+                Path a file with true labels. It is supposed that features 
+                and true label related to one example from the dataset have 
+                the same index (name).
 
             split_frac_train_val: float = 1.0
                 Fraction of training part size from the size of the full dataset. 
@@ -256,8 +263,8 @@ class FilteredClassifier():
                 the field `lr` of the model configuration file 
                 will be used.
 
-            path_to_file_names_to_be_excluded: str
-                Path to a `.txt` file which contains names of files 
+            path_to_examples_to_be_excluded: str = None
+                Path to a `.txt` file which contains names of examples 
                 to be excluded from the original dataset for training.
 
             is_forgetting: bool = False
@@ -311,12 +318,13 @@ class FilteredClassifier():
             run_name=run_name, 
             log_dir=log_dir,
             ckpt_dir=ckpt_dir,
-            data_filepath=data_filepath,
+            features_path=features_path,
+            targets_path=targets_path,
             split_frac_train_val=split_frac_train_val,
             random_state=random_state,
             total_epochs=total_epochs,
             lr=lr,
-            path_to_file_names_to_be_excluded=path_to_file_names_to_be_excluded,
+            path_to_examples_to_be_excluded=path_to_examples_to_be_excluded,
             is_forgetting=is_forgetting,
             metrics_on_train=metrics_on_train,
             ckpt_resume=ckpt_resume,
@@ -331,7 +339,8 @@ class FilteredClassifier():
 
     def filtration_by_forgetting(
         self,
-        data_filepath: str,
+        features_path: str,
+        targets_path: str,
         example_forgetting_dir: str = None,
         threshold_val: int = None,
         random_state: int = None,
@@ -339,7 +348,7 @@ class FilteredClassifier():
         lr: float = None,
         verbose: str = True,
         ckpt_resume: str = None,
-        path_to_file_names_to_be_excluded: str = None           
+        path_to_examples_to_be_excluded: str = None           
     ):
         """
         Method for filtering examples with noisy labels from the original dataset by 
@@ -347,17 +356,19 @@ class FilteredClassifier():
         `.txt` file. 
 
         Args:
-            data_filepath: str
-                Path to a directory which contains files with features and labels. 
-                It is supposed that each file contains vector consisting of
-                an embedding and a label of an example (in the last component).
+            features_path: str
+                Path to a file with features.
+
+            targets_path: str
+                Path a file with true labels. It is supposed that features 
+                and true label related to one example from the dataset have 
+                the same index (name).
 
             example_forgetting_dir: str = None
-                Path to a directory which will be used to save array with file names 
-                containing noisy labels. If it is `None`, then the directory with name
-                `f"{data_name}_forgetting"` will be created in the parent of the directory
-                `data_filepath`. The field `data_name` is provided by the data configuration
-                file.
+                Path to a directory which will be used to save array with names of noisy example. 
+                If it is `None`, then the directory with name `f"{data_name}_forgetting"` 
+                will be created in the parent of the directory `data_filepath`. 
+                The field `data_name` is provided by the data configuration file.
             
             threshold_val: int = None
                 Threshold value for `forgetting_counts`, which can be used to filtrate examples.
@@ -388,8 +399,8 @@ class FilteredClassifier():
                 and masks collected during training.
                 It should be `None` to train a model from an initial state.     
 
-            path_to_file_names_to_be_excluded: str
-                Path to a `.txt` file which contains names of files 
+            path_to_examples_to_be_excluded: str = None
+                Path to a `.txt` file which contains names of examples
                 to be excluded from the original dataset for training.
 
         Return:
@@ -435,7 +446,8 @@ class FilteredClassifier():
             run_name=run_name,
             log_dir=log_dir,
             ckpt_dir=ckpt_dir,
-            data_filepath=data_filepath,
+            features_path=features_path,
+            targets_path=targets_path,
             random_state=random_state,
             total_epochs=total_epochs,
             lr=lr,
@@ -444,7 +456,7 @@ class FilteredClassifier():
             example_forgetting_dir=example_forgetting_dir,
             threshold_val=threshold_val,
             ckpt_resume=ckpt_resume,
-            path_to_file_names_to_be_excluded=path_to_file_names_to_be_excluded
+            path_to_examples_to_be_excluded=path_to_examples_to_be_excluded
         )
 
         self._trainer = trainer
@@ -456,7 +468,8 @@ class FilteredClassifier():
 
     def filtration_by_second_split_forgetting(
         self,
-        data_filepath: str,
+        features_path: str,
+        targets_path: str,
         example_forgetting_dir: str = None,
         threshold_val: int = None,
         random_state: int = None,
@@ -464,7 +477,7 @@ class FilteredClassifier():
         lr: float = None,
         verbose: str = True,
         ckpt_resume: str = None,
-        path_to_file_names_to_be_excluded: str = None
+        path_to_examples_to_be_excluded: str = None
     ):
 
         """
@@ -473,18 +486,20 @@ class FilteredClassifier():
         saved in `.txt` file. 
 
         Args:
-            data_filepath: str
-                Path to a directory which contains files with features and labels. 
-                It is supposed that each file contains vector consisting of
-                an embedding and a label of an example (in the last component).
+            features_path: str
+                Path to a file with features.
+
+            targets_path: str
+                Path a file with true labels. It is supposed that features 
+                and true label related to one example from the dataset have 
+                the same index (name).
 
             example_forgetting_dir: str = None
-                Path to a directory which will be used to save array with file names 
-                containing noisy labels. If it is `None`, then the directory with name
-                `f"{data_name}_second_forgetting"` will be created in the parent of the directory
-                `data_filepath`. The field `data_name` is included in the data configuration
-                file.
-            
+                Path to a directory which will be used to save array with names of noisy examples. 
+                If it is `None`, then the directory with name `f"{data_name}_second_forgetting"
+                ` will be created in the parent of the directory `data_filepath`.
+                The field `data_name` is included in the data configuration file.
+                
             threshold_val: int = None
                 Threshold value for `epoch_forget_forever`, which can be used to filtrate examples.
                 If it is `None`, only examples which are forgotten after one epoch of the next 
@@ -514,8 +529,8 @@ class FilteredClassifier():
                 and masks collected during training.
                 It should be `None` to train a model from an initial state.     
 
-            path_to_file_names_to_be_excluded: str
-                Path to a `.txt` file which contains names of files 
+            path_to_examples_to_be_excluded: str = None
+                Path to a `.txt` file which contains names of examples 
                 to be excluded from the original dataset for training.
 
         Return:
@@ -565,7 +580,8 @@ class FilteredClassifier():
         df_examples = filtration_of_dataset_by_second_split_forgetting(
             log_dir=log_dir,
             ckpt_dir=ckpt_dir,
-            data_filepath=data_filepath,
+            features_path=features_path,
+            targets_path=targets_path,
             random_state=random_state,
             total_epochs_per_step=total_epochs_per_step,
             lr=lr,
@@ -575,7 +591,7 @@ class FilteredClassifier():
             threshold_val=threshold_val,
             ckpt_resume=ckpt_resume,
             ckpt_resume_step_idx=ckpt_resume_step_idx,
-            path_to_file_names_to_be_excluded=path_to_file_names_to_be_excluded
+            path_to_examples_to_be_excluded=path_to_examples_to_be_excluded
         )
 
         if verbose:
@@ -584,20 +600,19 @@ class FilteredClassifier():
 
     def predict(
         self,
-        data_filepath: str,
+        features_path: str,
         ckpt_resume: str,
         random_state: int = None,
-        is_target_col: bool = True,
-        path_to_file_names_to_be_excluded: str = None
+        targets_path: str = None,
+        path_to_examples_to_be_excluded: str = None
     ):
         """
         Method to get predictions using a model loaded from a checkpoint file
 
         Args:
-            data_filepath: str
-                Path to a directory which contains files with features.
-                If the files also contain labels, they should be in
-                the last component of the vectors.
+            features_path: str
+                Path to a file with features.
+
 
             ckpt_resume: str = None
                 Path to a checkpoint file `*.ckpt` which is used to load the model.
@@ -607,12 +622,14 @@ class FilteredClassifier():
                 from the field `random_state` from the data configuration file 
                 will be used.
 
-            is_target_col: bool = True
-            Is a value of a target variable included into to the input vector?
-            If it is `False`, target variable will be returned as `None`.
+            targets_path: str
+                Path a file with true labels. It is supposed that features 
+                and true label related to one example from the dataset have 
+                the same index (name).
+                If it is `None`, target variable will not be returned.  
 
-            path_to_file_names_to_be_excluded: str = None
-                Path to a `.txt` file which contains names of files 
+            path_to_examples_to_be_excluded: str = None
+                Path to a `.txt` file which contains names of examples
                 from the original dataset to be excluded from prediction.
         
         Return:
@@ -635,13 +652,13 @@ class FilteredClassifier():
 
         preds, uncertainties, file_names, gts, trainer = load_classifier_and_predict(
             run_name=self._run_name,
-            data_filepath=data_filepath,
+            features_path=features_path,
             ckpt_resume=ckpt_resume,
             random_state=random_state,
             dataconf=self._dataconf,
             modelconf=self._modelconf,
-            is_target_col=is_target_col,
-            path_to_file_names_to_be_excluded=path_to_file_names_to_be_excluded, 
+            targets_path=targets_path,
+            path_to_examples_to_be_excluded=path_to_examples_to_be_excluded, 
         )
 
         self._trainer = trainer

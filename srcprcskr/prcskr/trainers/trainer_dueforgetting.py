@@ -21,7 +21,13 @@ try:
 except ImportError:
     from typing_extensions import Literal
 
-from sklearn.metrics import accuracy_score, roc_auc_score 
+from sklearn.metrics import (
+    accuracy_score,
+    recall_score,
+    roc_auc_score, 
+    precision_recall_curve, 
+    auc
+)
 
 logger = logging.getLogger("event_seq")
 
@@ -473,7 +479,8 @@ class DueTrainerForgetting():
         #Concatenation of predictions and true labels obtained
         # in different batches
         model_preds = torch.cat(model_preds)
-        model_preds_proba, model_preds_label = torch.max(model_preds, axis=1)
+        model_preds_proba = model_preds[:, 1]
+        model_preds_label = torch.argmax(model_preds, axis=1)
         model_preds_proba = model_preds_proba.cpu().numpy()
         model_preds_label = model_preds_label.cpu().numpy()
 
@@ -481,8 +488,15 @@ class DueTrainerForgetting():
         ground_truths = ground_truths.cpu().numpy()
 
         #Compute metrics using sklearn functions
+        precision, recall, _ = precision_recall_curve(
+            ground_truths, model_preds_proba
+        )
+        pr_recall_auc = auc(recall, precision)
+        
         metrics_dict['acc_score'] = accuracy_score(ground_truths, model_preds_label)
-        metrics_dict['roc_auc_score'] = roc_auc_score(ground_truths, model_preds_label)
+        metrics_dict['recall_score'] = recall_score(ground_truths, model_preds_label)
+        metrics_dict['roc_auc_score'] = roc_auc_score(ground_truths, model_preds_proba)
+        metrics_dict['pr_auc_score'] = pr_recall_auc
 
         return metrics_dict
     
